@@ -12,12 +12,15 @@
        padding: 20px;
        line-height: 1.6;
      }
-
+     h2 {
+       margin-top: 5px;
+       margin-bottom: 5px;
+     }
      .travel-info {
        border: 1px solid #ccc;
-       padding: 20px;
+       padding: 10px;
        border-radius: 5px;
-       margin-top: 20px;
+       margin-top: 10px;
        background: #f9f9f9;
      }
      .travel-grid {
@@ -104,7 +107,7 @@
         <h2>🚇 Next Red Line Trains at Kendall/MIT</h2>
         <div id="trains">Loading...</div>
       </div>
-      <h2>Current Driving Times</h2>
+      <h2>🚘 Current Driving Times</h2>
       <div class="travel-grid">
         <div class="grid-header">Route</div>
         <div class="grid-header">Time</div>
@@ -122,15 +125,17 @@
           <div class="grid-cell" id="from-distance">Loading...</div>
         </div>
       </div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr">
         <p class="timestamp">
-            Last updated: <span id="timestamp">-</span>
-            <span id="cache-status" class="cache-status"></span>
+          Last updated: <span id="timestamp">-</span>
+          <span id="cache-status" class="cache-status"></span>
         </p>
         <p class="next-update">Next update in: <span id="next-update">-</span></p>
-        <button id="refresh-button" class="refresh-button" onclick="manualRefresh()">
-            Refresh Now
-        </button>
-        <p id="error-message" class="error"></p>
+      </div>
+      <button id="refresh-button" class="refresh-button" onclick="manualRefresh()">
+        Refresh Now
+      </button>
+      <p id="error-message" class="error"></p>
     </div>
 
     <script>
@@ -229,28 +234,30 @@
 
       let html = '';
 
+      html += `<div class="train-time">`
+
       // Display northbound (toward Alewife)
-      html += `
-          <div class="train-time">
-             <div class="train-direction">↑ Alewife</div>`;
-      northbound.forEach((prediction) => {
-        html += `
-          <div class="${prediction.arrival ? 'train-arriving' : ''}">
-            ${prediction.arrival ? formatTimeUntil(prediction.arrival) : 'No prediction'}
-          </div>
-          ${prediction.status ? `<div class="train-status">${prediction.status}</div>` : ''}`
+      html += `<div class="train-direction">↑ Alewife: `;
+      let elts = northbound.map((prediction) => {
+        return `
+          <span class="${prediction.arrival ? 'train-arriving' : ''}">
+            ${prediction.arrival ? formatTimeUntil(prediction.arrival) : 'No prediction'}</span>
+          ${prediction.status ? `<span class="train-status">${prediction.status}</span>` : ''}`
       })
+      html += elts.join('|')
+      html += `</div>`
 
       // Display southbound (toward Ashmont/Braintree)
-      html += `<div class="train-direction">↓ Ashmont/Braintree</div>`;
-      southbound.forEach((prediction) => {
-        html += `
-          <div class="${prediction.arrival ? 'train-arriving' : ''}">
+      html += `<div class="train-direction">↓ Ashmont/Braintree: `;
+      elts = southbound.map((prediction) => {
+        return `
+          <span class="${prediction.arrival ? 'train-arriving' : ''}">
             ${prediction.arrival ? formatTimeUntil(prediction.arrival) : 'No prediction'}
-          </div>
-          ${prediction.status ? `<div class="train-status">${prediction.status}</div>` : ''}`
+          </span>
+          ${prediction.status ? `<span class="train-status">${prediction.status}</span>` : ''}`
       })
-      html += `</div>`;
+      html += elts.join('|')
+      html += `</div></div>`;
 
       trainsDiv.innerHTML = html || '<p>No predictions available</p>';
     }
