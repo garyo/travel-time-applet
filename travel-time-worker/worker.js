@@ -73,11 +73,44 @@ async function getTravelTime(origin, destination, env) {
   return data.routes[0];        // should contain duration and distanceMeters
 }
 
+async function getCachedDriveTime(env) {
+  const cachedData = await env.TRAVEL_TIME_CACHE.get('drive-times', { type: 'json' });
+  if (cachedData) {
+    const age = Date.now() - cachedData.timestamp; // msec
+    // Return cached data if it's less than 4 minutes old
+    if (age < 4 * 60 * 1000) {
+      return {
+        ...cachedData,
+        cached: true,
+        cacheTTL: 4 * 60 - age / 1000,
+      };
+    }
+  }
+  return null;
+}
+
+async function cacheDriveTime(data, env) {
+  // Don't store the cached flag in KV storage
+  const { cached, ...dataToCache } = data;
+  await env.TRAVEL_TIME_CACHE.put('drive-times', JSON.stringify(dataToCache), {
+    expirationTtl: 300 // 5 minutes in seconds
+  });
+}
+
+
 async function handleDriveTime(request, env) {
+  // Check cache first
+  const cachedData = await getCachedDriveTime(env);
+  if (cachedData) {
+    console.log('Returning cached drive times');
+    return cachedData;
+  }
+
   const [route1, route2] = await Promise.all([
     getTravelTime(addresses.origin, addresses.destination, env),
     getTravelTime(addresses.destination, addresses.origin, env)]);
-  return {
+
+  const responseData = {
     to: {
       duration: route1.duration,
       distanceMeters: route1.distanceMeters,
@@ -89,6 +122,9 @@ async function handleDriveTime(request, env) {
     timestamp: Date.now(),
     cached: false
   };
+
+  await cacheDriveTime(responseData, env);
+  return responseData;
 }
 
 async function handleMBTA(request, env) {

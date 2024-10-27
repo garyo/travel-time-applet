@@ -231,7 +231,7 @@
       // Update cache status
       const cacheStatus = document.getElementById('cache-status');
       if (data.cached) {
-        cacheStatus.textContent = `Cached (${data.cacheTTL}s remaining)`;
+        cacheStatus.textContent = `Cached (${Math.ceil(data.cacheTTL)} sec remaining)`;
         cacheStatus.className = 'cache-status cache-stale';
       } else {
         cacheStatus.textContent = 'Fresh';
