@@ -5,68 +5,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Travel Time Monitor</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            line-height: 1.6;
-        }
-        .travel-info {
-            border: 1px solid #ccc;
-            padding: 20px;
-            border-radius: 5px;
-            margin-top: 20px;
-            background: #f9f9f9;
-        }
-        .timestamp {
-            color: #666;
-            font-size: 0.9em;
-        }
-        .cache-status {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 3px;
-            font-size: 0.85em;
-            margin-left: 8px;
-        }
-        .cache-fresh {
-            background-color: #e6ffe6;
-            color: #006600;
-        }
-        .cache-stale {
-            background-color: #fff3e6;
-            color: #995200;
-        }
-        .error {
-            color: #ff0000;
-            background: #ffe6e6;
-            padding: 10px;
-            border-radius: 3px;
-            margin-top: 10px;
-            display: none;
-        }
-        .refresh-button {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        .refresh-button:hover {
-            background: #45a049;
-        }
-        .refresh-button:disabled {
-            background: #cccccc;
-            cursor: not-allowed;
-        }
-        .next-update {
-            color: #666;
-            font-size: 0.9em;
-            margin-top: 10px;
-        }
+     body {
+       font-family: Arial, sans-serif;
+       max-width: 800px;
+       margin: 0 auto;
+       padding: 20px;
+       line-height: 1.6;
+     }
+
+     .travel-info {
+       border: 1px solid #ccc;
+       padding: 20px;
+       border-radius: 5px;
+       margin-top: 20px;
+       background: #f9f9f9;
+     }
+     .travel-grid {
+       display: grid;
+       grid-template-columns: auto 1fr 1fr;
+       gap: 12px;
+       margin: 10px 0;
+       background: #f9f9f9;
+       padding: 10px;
+       border-radius: 5px;
+       border: 1px solid #ccc;
+     }
+     .grid-header {
+       font-weight: bold;
+       padding: 10px;
+       background: #eee;
+       border-radius: 4px;
+     }
+     .grid-label {
+       font-weight: bold;
+     }
+     .grid-cell {
+       background: white;
+       border-radius: 4px;
+       min-height: 1.5em;
+     }
+     .grid-row {
+       display: contents;
+     }
+     .timestamp {
+       color: #666;
+       font-size: 0.9em;
+     }
+     .cache-status {
+       display: inline-block;
+       padding: 3px 8px;
+       border-radius: 3px;
+       font-size: 0.85em;
+       margin-left: 8px;
+     }
+     .cache-fresh {
+       background-color: #e6ffe6;
+       color: #006600;
+     }
+     .cache-stale {
+       background-color: #fff3e6;
+       color: #995200;
+     }
+     .error {
+       color: #ff0000;
+       background: #ffe6e6;
+       padding: 10px;
+       border-radius: 3px;
+       margin-top: 10px;
+       display: none;
+     }
+     .refresh-button {
+       background: #4CAF50;
+       color: white;
+       border: none;
+       padding: 10px 20px;
+       border-radius: 5px;
+       cursor: pointer;
+       margin-top: 10px;
+     }
+     .refresh-button:hover {
+       background: #45a049;
+     }
+     .refresh-button:disabled {
+       background: #cccccc;
+       cursor: not-allowed;
+     }
+     .next-update {
+       color: #666;
+       font-size: 0.9em;
+       margin-top: 10px;
+     }
     </style>
 </head>
 <body>
@@ -76,11 +104,24 @@
         <h2>🚇 Next Red Line Trains at Kendall/MIT</h2>
         <div id="trains">Loading...</div>
       </div>
-      <h2>Current Driving Time from Home to Apartment</h2>
-        <p>Duration: <span id="duration">Loading...</span></p>
-        <p>Distance: <span id="distance">Loading...</span></p>
-        <p>Reverse Duration: <span id="reverseDuration">Loading...</span></p>
-        <p>Reverse Distance: <span id="reverseDistance">Loading...</span></p>
+      <h2>Current Driving Times</h2>
+      <div class="travel-grid">
+        <div class="grid-header">Route</div>
+        <div class="grid-header">Time</div>
+        <div class="grid-header">Distance</div>
+
+        <div class="grid-row">
+          <div class="grid-label">→ To Apt</div>
+          <div class="grid-cell" id="to-time">Loading...</div>
+          <div class="grid-cell" id="to-distance">Loading...</div>
+        </div>
+
+        <div class="grid-row">
+          <div class="grid-label">← To Home</div>
+          <div class="grid-cell" id="from-time">Loading...</div>
+          <div class="grid-cell" id="from-distance">Loading...</div>
+        </div>
+      </div>
         <p class="timestamp">
             Last updated: <span id="timestamp">-</span>
             <span id="cache-status" class="cache-status"></span>
@@ -144,12 +185,11 @@
       // reverseDuration and reverseDistanceMeters (for apartment -> home)
       const drivingTo = data.driving.to;
       const drivingFrom = data.driving.from;
-      document.getElementById('duration').textContent = formatDuration(drivingTo.duration);
-      document.getElementById('distance').textContent = formatDistance(drivingTo.distanceMeters);
-      document.getElementById('reverseDuration').textContent = formatDuration(drivingFrom.duration);
-      document.getElementById('reverseDistance').textContent = formatDistance(drivingFrom.distanceMeters);
-      document.getElementById('timestamp').textContent =
-        new Date(data.timestamp).toLocaleString();
+      document.getElementById('to-time').textContent = formatDuration(drivingTo.duration);
+      document.getElementById('to-distance').textContent = formatDistance(drivingTo.distanceMeters);
+      document.getElementById('from-time').textContent = formatDuration(drivingFrom.duration);
+      document.getElementById('from-distance').textContent = formatDistance(drivingFrom.distanceMeters);
+      document.getElementById('timestamp').textContent = new Date(data.timestamp).toLocaleString();
 
       // Update cache status
       const cacheStatus = document.getElementById('cache-status');
