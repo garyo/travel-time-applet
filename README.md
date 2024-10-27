@@ -25,3 +25,8 @@ I use `uv` as my python package-manager/python-version/venv manager to simplify 
 uv run livereload .
 ```
 This will auto-install the python deps and run the server, auto-reloading on file changes. 
+
+* Deploy front end page to Cloudflare Pages:
+```
+wrangler pages deploy public
+```
