@@ -106,13 +106,10 @@
       <div class="travel-info">
         <h2>🚇 Next Red Line Trains at Kendall/MIT</h2>
         <div id="trains">Loading...</div>
+        <p class="next-update">Next update in: <span id="next-update-mbta">-</span></p>
       </div>
       <h2>🚘 Current Driving Times</h2>
       <div class="travel-grid">
-        <div class="grid-header">Route</div>
-        <div class="grid-header">Time</div>
-        <div class="grid-header">Distance</div>
-
         <div class="grid-row">
           <div class="grid-label">→ To Apt</div>
           <div class="grid-cell" id="to-time">Loading...</div>
@@ -139,15 +136,19 @@
     </div>
 
     <script>
-    const WORKER_URL = 'https://travel-time-worker.garyo.workers.dev';
-    const UPDATE_INTERVAL = 5 * 60 * 1000; // 5 minutes
-    let nextUpdateTimer;
-    let lastRequestTime = 0;
-    const MIN_REQUEST_INTERVAL = 10000; // 10 seconds, matching worker config
+    const WORKER_URL_MBTA = 'https://travel-time-worker.garyo.workers.dev/mbta';
+    const WORKER_URL_DRIVING = 'https://travel-time-worker.garyo.workers.dev/driving';
+    const UPDATE_INTERVAL_DRIVING = 5 * 60 * 1000; // 5 minutes
+    const UPDATE_INTERVAL_MBTA = 1 * 60 * 1000; // 1 minute
+    let nextUpdateTimerDriving;
+    let nextUpdateTimerMBTA;
+    let lastRequestTimeDriving = 0;
+    let lastRequestTimeMBTA = 0;
+    const MIN_REQUEST_INTERVAL = 10000; // 10 seconds, prevent overuse
 
     async function fetchTravelTime(isManualRefresh = false) {
       const now = Date.now();
-      const timeSinceLastRequest = now - lastRequestTime;
+      const timeSinceLastRequest = now - lastRequestTimeDriving;
 
       if (isManualRefresh && timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
         const waitTime = Math.ceil((MIN_REQUEST_INTERVAL - timeSinceLastRequest) / 1000);
@@ -159,23 +160,54 @@
       }
 
       try {
-        lastRequestTime = now;
+        lastRequestTimeDriving = now;
         document.getElementById('error-message').style.display = 'none';
 
-        const response = await fetch(WORKER_URL);
+        const response = await fetch(WORKER_URL_DRIVING);
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        updateUI(data);
+
+        // Reset and start the next update timer
+        if (nextUpdateTimerDriving) clearInterval(nextUpdateTimerDriving);
+        startUpdateCountdown(UPDATE_INTERVAL_DRIVING);
+
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('error-message').textContent =
+          'Failed to update travel time. Will retry automatically.';
+        document.getElementById('error-message').style.display = 'block';
+      }
+    }
+
+    async function fetchMBTAPredictions(isManualRefresh = false) {
+      const now = Date.now();
+      const timeSinceLastRequest = now - lastRequestTimeMBTA;
+
+      if (isManualRefresh && timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+        const waitTime = Math.ceil((MIN_REQUEST_INTERVAL - timeSinceLastRequest) / 1000);
+        document.getElementById('error-message').textContent =
+          `Please wait ${waitTime} seconds before refreshing again.`;
+        document.getElementById('error-message').style.display = 'block';
+        document.getElementById('refresh-button').disabled = false;
+        return;
+      }
+
+      try {
+        lastRequestTimeMBTA = now;
+        document.getElementById('error-message').style.display = 'none';
+
+        const response = await fetch(WORKER_URL_MBTA);
         if (!response.ok) throw new Error('Network response was not ok');
 
         const data = await response.json();
-        // console.log(data);
-
-        updateUI(data);
 
         // Update train predictions
-        updateTrainDisplay(data.mbta.predictions);
+        updateTrainDisplay(data.predictions);
 
         // Reset and start the next update timer
-        if (nextUpdateTimer) clearInterval(nextUpdateTimer);
-        startUpdateCountdown(UPDATE_INTERVAL);
+        if (nextUpdateTimerMBTA) clearInterval(nextUpdateTimerMBTA);
+        startUpdateCountdownMBTA(UPDATE_INTERVAL_MBTA);
 
       } catch (error) {
         console.error('Error:', error);
@@ -188,8 +220,8 @@
     function updateUI(data) {
       // data contains: duration, distanceMeters (for home -> apartment), and
       // reverseDuration and reverseDistanceMeters (for apartment -> home)
-      const drivingTo = data.driving.to;
-      const drivingFrom = data.driving.from;
+      const drivingTo = data.to;
+      const drivingFrom = data.from;
       document.getElementById('to-time').textContent = formatDuration(drivingTo.duration);
       document.getElementById('to-distance').textContent = formatDistance(drivingTo.distanceMeters);
       document.getElementById('from-time').textContent = formatDuration(drivingFrom.duration);
@@ -208,16 +240,6 @@
 
       // Enable refresh button
       document.getElementById('refresh-button').disabled = false;
-    }
-
-    function formatTimeUntil(arrivalTime) {
-      const arrival = new Date(arrivalTime);
-      const now = new Date();
-      const diffMinutes = Math.round((arrival - now) / (1000 * 60));
-
-      if (diffMinutes <= 0) return 'Now';
-      if (diffMinutes === 1) return '1 minute';
-      return `${diffMinutes} minutes`;
     }
 
     function updateTrainDisplay(predictions) {
@@ -268,12 +290,12 @@
       const nextUpdateSpan = document.getElementById('next-update');
       let timeLeft = Math.floor(duration / 1000);
 
-      nextUpdateTimer = setInterval(() => {
+      nextUpdateTimerDriving = setInterval(() => {
         timeLeft -= 1;
         if (timeLeft <= 0) {
           nextUpdateSpan.textContent = 'Updating...';
           refreshButton.disabled = true;
-          clearInterval(nextUpdateTimer);
+          clearInterval(nextUpdateTimerDriving);
           fetchTravelTime();
         } else {
           nextUpdateSpan.textContent = `${timeLeft} seconds`;
@@ -283,35 +305,68 @@
       nextUpdateSpan.textContent = `${timeLeft} seconds`;
     }
 
-        async function manualRefresh() {
-            document.getElementById('refresh-button').disabled = true;
-            await fetchTravelTime(true);
+    function startUpdateCountdownMBTA(duration) {
+      const refreshButton = document.getElementById('refresh-button');
+      const nextUpdateSpan = document.getElementById('next-update-mbta');
+      let timeLeft = Math.floor(duration / 1000);
+
+      nextUpdateTimerMBTA = setInterval(() => {
+        timeLeft -= 1;
+        if (timeLeft <= 0) {
+          nextUpdateSpan.textContent = 'Updating...';
+          refreshButton.disabled = true;
+          clearInterval(nextUpdateTimerMBTA);
+          fetchMBTAPredictions();
+        } else {
+          nextUpdateSpan.textContent = `${timeLeft} seconds`;
         }
+      }, 1000);
 
-        function convertSecondsToHMS(timeString) {
-          // Extract the numeric part of the string (which ends in "s") and convert it to an integer
-          const seconds = parseInt(timeString.replace("s", ""), 10);
+      nextUpdateSpan.textContent = `${timeLeft} seconds`;
+    }
 
-          // Calculate hours, minutes, and seconds
-          const hours = Math.floor(seconds / 3600);
-          const minutes = Math.floor((seconds % 3600) / 60);
-          const remainingSeconds = seconds % 60;
+    async function manualRefresh() {
+      document.getElementById('refresh-button').disabled = true;
+      await fetchTravelTime(true);
+      await fetchMBTAPredictions(true);
+    }
 
-          // Return formatted as "h:m:s"
-          return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-        }
+    function formatTimeUntil(arrivalTime) {
+      const arrival = new Date(arrivalTime);
+      const now = new Date();
+      const diffMinutes = Math.round((arrival - now) / (1000 * 60));
 
-        function formatDuration(duration) {
-          return convertSecondsToHMS(duration)
-        }
+      if (diffMinutes < -1) return `${-diffMinutes} minutes ago`;
+      if (diffMinutes <= 0) return 'Now';
+      if (diffMinutes === 1) return '1 minute';
+      return `${diffMinutes} minutes`;
+    }
 
-        function formatDistance(meters) {
-            const miles = (meters / 1609.344).toFixed(2);
-            return `${miles} miles`;
-        }
+    function convertSecondsToHMS(timeString) {
+      // Extract the numeric part of the string (which ends in "s") and convert it to an integer
+      const seconds = parseInt(timeString.replace("s", ""), 10);
 
-        // Initial fetch
-        fetchTravelTime();
+      // Calculate hours, minutes, and seconds
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const remainingSeconds = seconds % 60;
+
+      // Return formatted as "h:m:s"
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+
+    function formatDuration(duration) {
+      return convertSecondsToHMS(duration)
+    }
+
+    function formatDistance(meters) {
+      const miles = (meters / 1609.344).toFixed(2);
+      return `${miles} miles`;
+    }
+
+    // Initial fetches
+    fetchTravelTime();
+    fetchMBTAPredictions();
     </script>
 </body>
 </html>

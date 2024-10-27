@@ -54,7 +54,6 @@ async function getTravelTime(origin, destination, env) {
     body: JSON.stringify(routeParams)
   });
 
-  // Log Google API response status
   console.log('Google API response status:', googleResponse.status);
 
   if (!googleResponse.ok) {
@@ -74,8 +73,40 @@ async function getTravelTime(origin, destination, env) {
   return data.routes[0];        // should contain duration and distanceMeters
 }
 
+async function handleDriveTime(request, env) {
+  const [route1, route2] = await Promise.all([
+    getTravelTime(addresses.origin, addresses.destination, env),
+    getTravelTime(addresses.destination, addresses.origin, env)]);
+  return {
+    to: {
+      duration: route1.duration,
+      distanceMeters: route1.distanceMeters,
+    },
+    from: {
+      duration: route2.duration,
+      distanceMeters: route2.distanceMeters,
+    },
+    timestamp: Date.now(),
+    cached: false
+  };
+}
+
+async function handleMBTA(request, env) {
+  const mbtaTrains = await getMBTAPredictions(mbta)
+  return {
+    predictions: mbtaTrains.map(pred => ({
+      arrival: pred.arrival,
+      departure: pred.departure,
+      direction: pred.direction === 0 ? "Southbound" : "Northbound",
+      status: pred.status
+    })),
+    timestamp: Date.now(),
+    cached: false
+  }
+}
+
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env, _ /*ctx*/) {
     // Add CORS for all responses including errors
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
@@ -108,41 +139,48 @@ export default {
         throw new Error('KV namespace is not bound to worker');
       }
 
-      const route1 = await getTravelTime(addresses.origin, addresses.destination, env)
-      const route2 = await getTravelTime(addresses.destination, addresses.origin, env)
-      const mbtaTrains = await getMBTAPredictions(mbta)
+      const url = new URL(request.url);
+      let responseData;
 
-      // Prepare response data
-      const responseData = {
-        driving: {
-          to: {
-            duration: route1.duration,
-            distanceMeters: route1.distanceMeters,
-          },
-          from: {
-            duration: route2.duration,
-            distanceMeters: route2.distanceMeters,
-          },
-        },
-        mbta: {
-          predictions: mbtaTrains.map(pred => ({
-            arrival: pred.arrival,
-            direction: pred.direction === 0 ? "Southbound" : "Northbound",
-            status: pred.status
-          }))
-        },
-        timestamp: Date.now(),
-        cached: false
-      };
-      // For debugging:
-      // console.log(`Returning data: ${JSON.stringify(responseData, null, 2)}`)
+      switch (url.pathname) {
+      case '/driving':
+        responseData = await handleDriveTime(request, env);
+        break;
+      case '/mbta':
+        responseData = await handleMBTA(request, env);
+        break;
+      case '/all':  // returns both
+        const [driveData, mbtaData] = await Promise.all([
+          handleDriveTime(request, env),
+          handleMBTA(request, env)
+        ]);
+        responseData = {
+          driving: driveData,
+          mbta: mbtaData,
+          timestamp: Date.now()
+        };
+        break;
+
+      default:
+        return new Response(JSON.stringify({
+          error: 'Not Found',
+          availableEndpoints: ['/driving', '/mbta', '/all']
+        }), {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
+        });
+      }
+
+      console.log(`Returning data for ${url.pathname}: ${JSON.stringify(responseData, null, 2)}`)
       return new Response(JSON.stringify(responseData), {
         headers: {
           'Content-Type': 'application/json',
           ...corsHeaders
         }
       });
-
     } catch (error) {
       // Log the full error
       console.error('Worker error:', {
