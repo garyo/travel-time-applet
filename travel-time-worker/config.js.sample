@@ -1,0 +1,15 @@
+export const addresses = {
+  // home
+  origin: {
+    address: "123 Any St, Boston MA"
+  },
+  // apartment
+  destination: {
+    address: "77 Massachusetts Ave, Cambridge MA"
+  }
+};
+
+export const mbta = {
+  stationId: "place-knncl",     // Kendall Square (see MBTA API)
+  routeId: "Red"
+};

@@ -2,7 +2,7 @@ import {addresses, mbta} from './config.js';
 
 
 async function getMBTAPredictions(mbta) {
-  const url = `https://api-v3.mbta.com/predictions?filter[stop]=${mbta.stationId}&filter[route]=${mbta.routeId}&sort=arrival_time&page[limit]=2`;
+  const url = `https://api-v3.mbta.com/predictions?filter[stop]=${mbta.stationId}&filter[route]=${mbta.routeId}&sort=arrival_time&page[limit]=6`;
 
   const response = await fetch(url, {
     headers: {
@@ -108,27 +108,34 @@ export default {
         throw new Error('KV namespace is not bound to worker');
       }
 
-      console.log('Getting travel time...')
       const route1 = await getTravelTime(addresses.origin, addresses.destination, env)
-      console.log(route1)
-      console.log('Getting reverse travel time...')
       const route2 = await getTravelTime(addresses.destination, addresses.origin, env)
-      console.log(route2)
-
-      console.log('Getting MBTA trains...')
       const mbtaTrains = await getMBTAPredictions(mbta)
-      console.log(mbtaTrains)
 
       // Prepare response data
       const responseData = {
-        duration: route1.duration,
-        distanceMeters: route1.distanceMeters,
-        reverseDuration: route2.duration,
-        reverseDistanceMeters: route2.distanceMeters,
+        driving: {
+          to: {
+            duration: route1.duration,
+            distanceMeters: route1.distanceMeters,
+          },
+          from: {
+            duration: route2.duration,
+            distanceMeters: route2.distanceMeters,
+          },
+        },
+        mbta: {
+          predictions: mbtaTrains.map(pred => ({
+            arrival: pred.arrival,
+            direction: pred.direction === 0 ? "Southbound" : "Northbound",
+            status: pred.status
+          }))
+        },
         timestamp: Date.now(),
         cached: false
       };
-
+      // For debugging:
+      // console.log(`Returning data: ${JSON.stringify(responseData, null, 2)}`)
       return new Response(JSON.stringify(responseData), {
         headers: {
           'Content-Type': 'application/json',

@@ -124,6 +124,9 @@
 
         updateUI(data);
 
+        // Update train predictions
+        updateTrainDisplay(data.mbta.predictions);
+
         // Reset and start the next update timer
         if (nextUpdateTimer) clearInterval(nextUpdateTimer);
         startUpdateCountdown(UPDATE_INTERVAL);
@@ -139,10 +142,12 @@
     function updateUI(data) {
       // data contains: duration, distanceMeters (for home -> apartment), and
       // reverseDuration and reverseDistanceMeters (for apartment -> home)
-      document.getElementById('duration').textContent = formatDuration(data.duration);
-      document.getElementById('distance').textContent = formatDistance(data.distanceMeters);
-      document.getElementById('reverseDuration').textContent = formatDuration(data.reverseDuration);
-      document.getElementById('reverseDistance').textContent = formatDistance(data.reverseDistanceMeters);
+      const drivingTo = data.driving.to;
+      const drivingFrom = data.driving.from;
+      document.getElementById('duration').textContent = formatDuration(drivingTo.duration);
+      document.getElementById('distance').textContent = formatDistance(drivingTo.distanceMeters);
+      document.getElementById('reverseDuration').textContent = formatDuration(drivingFrom.duration);
+      document.getElementById('reverseDistance').textContent = formatDistance(drivingFrom.distanceMeters);
       document.getElementById('timestamp').textContent =
         new Date(data.timestamp).toLocaleString();
 
@@ -159,6 +164,57 @@
       // Enable refresh button
       document.getElementById('refresh-button').disabled = false;
     }
+
+    function formatTimeUntil(arrivalTime) {
+      const arrival = new Date(arrivalTime);
+      const now = new Date();
+      const diffMinutes = Math.round((arrival - now) / (1000 * 60));
+
+      if (diffMinutes <= 0) return 'Now';
+      if (diffMinutes === 1) return '1 minute';
+      return `${diffMinutes} minutes`;
+    }
+
+    function updateTrainDisplay(predictions) {
+      console.log(`Updating trains from predictions: ${JSON.stringify(predictions)}`)
+      const trainsDiv = document.getElementById('trains');
+      if (!predictions || predictions.length === 0) {
+        trainsDiv.innerHTML = '<p>No predictions available</p>';
+        return;
+      }
+
+      // Separate predictions by direction
+      const northbound = predictions.filter(p => p.direction === "Northbound");
+      const southbound = predictions.filter(p => p.direction === "Southbound");
+
+      let html = '';
+
+      // Display northbound (toward Alewife)
+      html += `
+          <div class="train-time">
+             <div class="train-direction">↑ Alewife</div>`;
+      northbound.forEach((prediction) => {
+        html += `
+          <div class="${prediction.arrival ? 'train-arriving' : ''}">
+            ${prediction.arrival ? formatTimeUntil(prediction.arrival) : 'No prediction'}
+          </div>
+          ${prediction.status ? `<div class="train-status">${prediction.status}</div>` : ''}`
+      })
+
+      // Display southbound (toward Ashmont/Braintree)
+      html += `<div class="train-direction">↓ Ashmont/Braintree</div>`;
+      southbound.forEach((prediction) => {
+        html += `
+          <div class="${prediction.arrival ? 'train-arriving' : ''}">
+            ${prediction.arrival ? formatTimeUntil(prediction.arrival) : 'No prediction'}
+          </div>
+          ${prediction.status ? `<div class="train-status">${prediction.status}</div>` : ''}`
+      })
+      html += `</div>`;
+
+      trainsDiv.innerHTML = html || '<p>No predictions available</p>';
+    }
+
 
     function startUpdateCountdown(duration) {
       const refreshButton = document.getElementById('refresh-button');
