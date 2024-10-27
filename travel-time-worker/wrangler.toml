@@ -1,0 +1,16 @@
+name = "travel-time-worker"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+CACHE_TTL_SECONDS = "240"  # 4 minutes cache TTL
+MIN_REQUEST_INTERVAL = "10" # minimum 10 seconds between requests
+
+[[kv_namespaces]]
+binding = "TRAVEL_TIME_CACHE"
+id = "b1e8d65975b94c9da14110d10d34bfd9"
+preview_id = "f01687e610694082bc61b10b0a9ad27e"
+
+[observability]
+enabled = true
+head_sampling_rate = 1

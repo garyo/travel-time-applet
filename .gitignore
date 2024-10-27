@@ -1,0 +1,5 @@
+travel-time-worker/.dev.vars
+travel-time-worker/dist
+node_modules
+.wrangler
+travel-time-worker/config.js

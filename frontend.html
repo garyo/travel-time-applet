@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Time Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .travel-info {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+            background: #f9f9f9;
+        }
+        .timestamp {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .cache-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.85em;
+            margin-left: 8px;
+        }
+        .cache-fresh {
+            background-color: #e6ffe6;
+            color: #006600;
+        }
+        .cache-stale {
+            background-color: #fff3e6;
+            color: #995200;
+        }
+        .error {
+            color: #ff0000;
+            background: #ffe6e6;
+            padding: 10px;
+            border-radius: 3px;
+            margin-top: 10px;
+            display: none;
+        }
+        .refresh-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .refresh-button:hover {
+            background: #45a049;
+        }
+        .refresh-button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .next-update {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Travel Time Monitor</h1>
+    <div class="travel-info">
+      <div class="travel-info">
+        <h2>🚇 Next Red Line Trains at Kendall/MIT</h2>
+        <div id="trains">Loading...</div>
+      </div>
+      <h2>Current Driving Time from Home to Apartment</h2>
+        <p>Duration: <span id="duration">Loading...</span></p>
+        <p>Distance: <span id="distance">Loading...</span></p>
+        <p>Reverse Duration: <span id="reverseDuration">Loading...</span></p>
+        <p>Reverse Distance: <span id="reverseDistance">Loading...</span></p>
+        <p class="timestamp">
+            Last updated: <span id="timestamp">-</span>
+            <span id="cache-status" class="cache-status"></span>
+        </p>
+        <p class="next-update">Next update in: <span id="next-update">-</span></p>
+        <button id="refresh-button" class="refresh-button" onclick="manualRefresh()">
+            Refresh Now
+        </button>
+        <p id="error-message" class="error"></p>
+    </div>
+
+    <script>
+    const WORKER_URL = 'https://travel-time-worker.garyo.workers.dev';
+    const UPDATE_INTERVAL = 5 * 60 * 1000; // 5 minutes
+    let nextUpdateTimer;
+    let lastRequestTime = 0;
+    const MIN_REQUEST_INTERVAL = 10000; // 10 seconds, matching worker config
+
+    async function fetchTravelTime(isManualRefresh = false) {
+      const now = Date.now();
+      const timeSinceLastRequest = now - lastRequestTime;
+
+      if (isManualRefresh && timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+        const waitTime = Math.ceil((MIN_REQUEST_INTERVAL - timeSinceLastRequest) / 1000);
+        document.getElementById('error-message').textContent =
+          `Please wait ${waitTime} seconds before refreshing again.`;
+        document.getElementById('error-message').style.display = 'block';
+        document.getElementById('refresh-button').disabled = false;
+        return;
+      }
+
+      try {
+        lastRequestTime = now;
+        document.getElementById('error-message').style.display = 'none';
+
+        const response = await fetch(WORKER_URL);
+        if (!response.ok) throw new Error('Network response was not ok');
+
+        const data = await response.json();
+        // console.log(data);
+
+        updateUI(data);
+
+        // Reset and start the next update timer
+        if (nextUpdateTimer) clearInterval(nextUpdateTimer);
+        startUpdateCountdown(UPDATE_INTERVAL);
+
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('error-message').textContent =
+          'Failed to update travel time. Will retry automatically.';
+        document.getElementById('error-message').style.display = 'block';
+      }
+    }
+
+    function updateUI(data) {
+      // data contains: duration, distanceMeters (for home -> apartment), and
+      // reverseDuration and reverseDistanceMeters (for apartment -> home)
+      document.getElementById('duration').textContent = formatDuration(data.duration);
+      document.getElementById('distance').textContent = formatDistance(data.distanceMeters);
+      document.getElementById('reverseDuration').textContent = formatDuration(data.reverseDuration);
+      document.getElementById('reverseDistance').textContent = formatDistance(data.reverseDistanceMeters);
+      document.getElementById('timestamp').textContent =
+        new Date(data.timestamp).toLocaleString();
+
+      // Update cache status
+      const cacheStatus = document.getElementById('cache-status');
+      if (data.cached) {
+        cacheStatus.textContent = `Cached (${data.cacheTTL}s remaining)`;
+        cacheStatus.className = 'cache-status cache-stale';
+      } else {
+        cacheStatus.textContent = 'Fresh';
+        cacheStatus.className = 'cache-status cache-fresh';
+      }
+
+      // Enable refresh button
+      document.getElementById('refresh-button').disabled = false;
+    }
+
+    function startUpdateCountdown(duration) {
+      const refreshButton = document.getElementById('refresh-button');
+      const nextUpdateSpan = document.getElementById('next-update');
+      let timeLeft = Math.floor(duration / 1000);
+
+      nextUpdateTimer = setInterval(() => {
+        timeLeft -= 1;
+        if (timeLeft <= 0) {
+          nextUpdateSpan.textContent = 'Updating...';
+          refreshButton.disabled = true;
+          clearInterval(nextUpdateTimer);
+          fetchTravelTime();
+        } else {
+          nextUpdateSpan.textContent = `${timeLeft} seconds`;
+        }
+      }, 1000);
+
+      nextUpdateSpan.textContent = `${timeLeft} seconds`;
+    }
+
+        async function manualRefresh() {
+            document.getElementById('refresh-button').disabled = true;
+            await fetchTravelTime(true);
+        }
+
+        function convertSecondsToHMS(timeString) {
+          // Extract the numeric part of the string (which ends in "s") and convert it to an integer
+          const seconds = parseInt(timeString.replace("s", ""), 10);
+
+          // Calculate hours, minutes, and seconds
+          const hours = Math.floor(seconds / 3600);
+          const minutes = Math.floor((seconds % 3600) / 60);
+          const remainingSeconds = seconds % 60;
+
+          // Return formatted as "h:m:s"
+          return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        function formatDuration(duration) {
+          return convertSecondsToHMS(duration)
+        }
+
+        function formatDistance(meters) {
+            const miles = (meters / 1609.344).toFixed(2);
+            return `${miles} miles`;
+        }
+
+        // Initial fetch
+        fetchTravelTime();
+    </script>
+</body>
+</html>
