@@ -25,9 +25,10 @@
      }
      .travel-grid {
        display: grid;
-       grid-template-columns: auto 1fr 1fr;
+       grid-template-columns: auto auto auto;
+       width: fit-content;
        gap: 12px;
-       margin: 10px 0;
+       margin: 0px 0;
        background: #f9f9f9;
        padding: 10px;
        border-radius: 5px;
@@ -49,6 +50,15 @@
      }
      .grid-row {
        display: contents;
+     }
+     .grid2 {
+       display: grid;
+       grid-template-columns: auto auto;
+     }
+     @media (max-width: 600px) {
+       .grid2 {
+         grid-template-columns: 1fr;  /* one column */
+       }
      }
      .long-drive-time {
        color: #995200;
@@ -105,17 +115,17 @@
      .next-update {
        color: #666;
        font-size: 0.9em;
-       margin-top: 10px;
      }
     </style>
 </head>
 <body>
-    <h1>Travel Time Monitor</h1>
     <div class="travel-info">
       <div class="travel-info">
+        <div class="grid2">
         <h2>🚇 Next Red Line Trains at Kendall/MIT</h2>
-        <div id="trains">Loading...</div>
         <p class="next-update">Next update in: <span id="next-update-mbta">-</span></p>
+        </div>
+        <div id="trains">Loading...</div>
       </div>
       <h2>🚘 Current Driving Times</h2>
       <div class="travel-grid">
@@ -131,12 +141,12 @@
           <div class="grid-cell" id="from-distance">Loading...</div>
         </div>
       </div>
-      <div style="display:grid; grid-template-columns: 1fr 1fr">
-        <p class="timestamp">
+      <div class="grid2">
+        <div class="timestamp">
           Last updated: <span id="timestamp">-</span>
           <span id="cache-status" class="cache-status"></span>
-        </p>
-        <p class="next-update">Next update in: <span id="next-update">-</span></p>
+        </div>
+        <div class="next-update">Next update in: <span id="next-update">-</span></div>
       </div>
       <button id="refresh-button" class="refresh-button" onclick="manualRefresh()">
         Refresh Now
@@ -273,26 +283,32 @@
       html += `<div class="train-time">`
 
       // Display northbound (toward Alewife)
-      html += `<div class="train-direction">↑ Alewife: `;
+      html += `<div class="train-direction">↑ <i>Alewife</i>: `;
       let elts = northbound.map((prediction) => {
-        return `
+        if (showTimePrediction(prediction.arrival))
+          return `
           <span class="${prediction.arrival ? 'train-arriving' : ''}">
             ${prediction.arrival ? formatTimeUntil(prediction.arrival) : 'No prediction'}</span>
           ${prediction.status ? `<span class="train-status">${prediction.status}</span>` : ''}`
+        else
+          return null;
       })
-      html += elts.join('|')
+      html += elts.filter(x => x != null).join('|')
       html += `</div>`
 
       // Display southbound (toward Ashmont/Braintree)
-      html += `<div class="train-direction">↓ Ashmont/Braintree: `;
+      html += `<div class="train-direction">↓ <i>Ashmont/Braintree</i>: `;
       elts = southbound.map((prediction) => {
-        return `
+        if (showTimePrediction(prediction.arrival))
+          return `
           <span class="${prediction.arrival ? 'train-arriving' : ''}">
             ${prediction.arrival ? formatTimeUntil(prediction.arrival) : 'No prediction'}
           </span>
           ${prediction.status ? `<span class="train-status">${prediction.status}</span>` : ''}`
+        else
+          return null;
       })
-      html += elts.join('|')
+      html += elts.filter(x => x != null).join('|')
       html += `</div></div>`;
 
       trainsDiv.innerHTML = html || '<p>No predictions available</p>';
@@ -343,6 +359,13 @@
       document.getElementById('refresh-button').disabled = true;
       await fetchTravelTime(true);
       await fetchMBTAPredictions(true);
+    }
+
+    function showTimePrediction(arrivalTime) {
+      const arrival = new Date(arrivalTime);
+      const now = new Date();
+      const diffMinutes = Math.round((arrival - now) / (1000 * 60));
+      return diffMinutes > -1;
     }
 
     function formatTimeUntil(arrivalTime) {
