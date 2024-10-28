@@ -30,3 +30,12 @@ This will auto-install the python deps and run the server, auto-reloading on fil
 ```
 wrangler pages deploy public
 ```
+
+# Config and secrets
+
+* Log in to Cloudflare with `wrangler login`
+* Add your Google Maps API key with `wrangler secret set GOOGLE_API_KEY`
+* Copy `travel-time-worker/config.js.sample` to `travel-time-worker/config.js` and set up your addresses there.
+
+# Live Demo
+* https://travel-time-applet.pages.dev/
