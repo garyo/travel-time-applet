@@ -50,6 +50,15 @@
      .grid-row {
        display: contents;
      }
+     .long-drive-time {
+       color: #995200;
+       background: #ffffdd;
+     }
+     .very-long-drive-time {
+       color: #995200;
+       font-weight: bold;
+       background: #ffff88;
+     }
      .timestamp {
        color: #666;
        font-size: 0.9em;
@@ -220,12 +229,17 @@
     function updateUI(data) {
       // data contains: duration, distanceMeters (for home -> apartment), and
       // reverseDuration and reverseDistanceMeters (for apartment -> home)
-      const drivingTo = data.to;
-      const drivingFrom = data.from;
-      document.getElementById('to-time').textContent = formatDuration(drivingTo.duration);
-      document.getElementById('to-distance').textContent = formatDistance(drivingTo.distanceMeters);
-      document.getElementById('from-time').textContent = formatDuration(drivingFrom.duration);
-      document.getElementById('from-distance').textContent = formatDistance(drivingFrom.distanceMeters);
+      const drivingToSec = parseInt(data.to.duration.replace("s", ""), 10);
+      const drivingFromSec = parseInt(data.from.duration.replace("s", ""), 10);
+
+      document.getElementById('to-time').textContent = formatDuration(drivingToSec);
+      document.getElementById('to-time').className = drivingTimeClass(drivingToSec);
+      document.getElementById('to-distance').textContent = formatDistance(data.to.distanceMeters);
+
+      document.getElementById('from-time').textContent = formatDuration(drivingFromSec);
+      document.getElementById('from-time').className = drivingTimeClass(drivingFromSec);
+      document.getElementById('from-distance').textContent = formatDistance(data.from.distanceMeters);
+
       document.getElementById('timestamp').textContent = new Date(data.timestamp).toLocaleString();
 
       // Update cache status
@@ -342,9 +356,9 @@
       return `${diffMinutes} minutes`;
     }
 
-    function convertSecondsToHMS(timeString) {
-      // Extract the numeric part of the string (which ends in "s") and convert it to an integer
-      const seconds = parseInt(timeString.replace("s", ""), 10);
+    function convertSecondsToHMS(timeArg) {
+      // Extract the numeric part of the string (which may end in "s") and convert it to an integer
+      const seconds = typeof(timeArg) == 'number' ? timeArg : parseInt(timeArg.replace("s", ""), 10);
 
       // Calculate hours, minutes, and seconds
       const hours = Math.floor(seconds / 3600);
@@ -362,6 +376,14 @@
     function formatDistance(meters) {
       const miles = (meters / 1609.344).toFixed(2);
       return `${miles} miles`;
+    }
+
+    function drivingTimeClass(timeSec) {
+      if (timeSec > 40 * 60)
+        return 'very-long-drive-time';
+      if (timeSec > 30 * 60)
+        return 'long-drive-time';
+      return '';
     }
 
     // Initial fetches
