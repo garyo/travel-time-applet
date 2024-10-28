@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Copyright (c) 2024 Gary Oberbrunner
+# SPDX-License-Identifier: MIT
+
 set -e
 
 # Deploy front end page
