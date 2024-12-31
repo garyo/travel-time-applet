@@ -22,6 +22,7 @@ wrangler dev
 I use `uv` as my python package-manager/python-version/venv manager to simplify things
 * Run front-end server:
 ```
+cd public
 uv run livereload .
 ```
 This will auto-install the python deps and run the server, auto-reloading on file changes. 

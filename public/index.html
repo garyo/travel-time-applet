@@ -158,263 +158,290 @@
     </div>
 
     <script>
-    const WORKER_URL_MBTA = 'https://travel-time-worker.garyo.workers.dev/mbta';
-    const WORKER_URL_DRIVING = 'https://travel-time-worker.garyo.workers.dev/driving';
-    const UPDATE_INTERVAL_DRIVING = 5 * 60 * 1000; // 5 minutes
-    const UPDATE_INTERVAL_MBTA = 1 * 60 * 1000; // 1 minute
-    let nextUpdateTimerDriving;
-    let nextUpdateTimerMBTA;
-    let lastRequestTimeDriving = 0;
-    let lastRequestTimeMBTA = 0;
-    const MIN_REQUEST_INTERVAL = 10000; // 10 seconds, prevent overuse
+    // State management class to handle application state
+    class TravelTimeMonitor {
+      constructor() {
+        this.state = {
+          lastRequestTimeDriving: 0,
+          lastRequestTimeMBTA: 0,
+          timers: {
+            driving: null,
+            mbta: null
+          },
+          isRefreshing: false
+        };
 
-    async function fetchTravelTime(isManualRefresh = false) {
-      const now = Date.now();
-      const timeSinceLastRequest = now - lastRequestTimeDriving;
+        this.constants = {
+          UPDATE_INTERVAL_DRIVING: 5 * 60 * 1000,
+          UPDATE_INTERVAL_MBTA: 1 * 60 * 1000,
+          MIN_REQUEST_INTERVAL: 10000,
+          ENDPOINTS: {
+            MBTA: 'https://travel-time-worker.garyo.workers.dev/mbta',
+            DRIVING: 'https://travel-time-worker.garyo.workers.dev/driving'
+          }
+        };
 
-      if (isManualRefresh && timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-        const waitTime = Math.ceil((MIN_REQUEST_INTERVAL - timeSinceLastRequest) / 1000);
-        document.getElementById('error-message').textContent =
-          `Please wait ${waitTime} seconds before refreshing again.`;
-        document.getElementById('error-message').style.display = 'block';
-        document.getElementById('refresh-button').disabled = false;
-        return;
+        this.init();
       }
 
-      try {
-        lastRequestTimeDriving = now;
-        document.getElementById('error-message').style.display = 'none';
-
-        const response = await fetch(WORKER_URL_DRIVING);
-        if (!response.ok) throw new Error('Network response was not ok');
-        const data = await response.json();
-        updateUI(data);
-
-        // Reset and start the next update timer
-        if (nextUpdateTimerDriving) clearInterval(nextUpdateTimerDriving);
-        startUpdateCountdown(UPDATE_INTERVAL_DRIVING);
-
-      } catch (error) {
-        console.error('Error:', error);
-        document.getElementById('error-message').textContent =
-          'Failed to update travel time. Will retry automatically.';
-        document.getElementById('error-message').style.display = 'block';
-      }
-    }
-
-    async function fetchMBTAPredictions(isManualRefresh = false) {
-      const now = Date.now();
-      const timeSinceLastRequest = now - lastRequestTimeMBTA;
-
-      if (isManualRefresh && timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-        const waitTime = Math.ceil((MIN_REQUEST_INTERVAL - timeSinceLastRequest) / 1000);
-        document.getElementById('error-message').textContent =
-          `Please wait ${waitTime} seconds before refreshing again.`;
-        document.getElementById('error-message').style.display = 'block';
-        document.getElementById('refresh-button').disabled = false;
-        return;
+      init() {
+        this.fetchDrivingData();
+        this.fetchMBTAData();
+        this.setupRefreshButton();
       }
 
-      try {
-        lastRequestTimeMBTA = now;
-        document.getElementById('error-message').style.display = 'none';
-
-        const response = await fetch(WORKER_URL_MBTA);
-        if (!response.ok) throw new Error('Network response was not ok');
-
-        const data = await response.json();
-
-        // Update train predictions
-        updateTrainDisplay(data.predictions);
-
-        // Reset and start the next update timer
-        if (nextUpdateTimerMBTA) clearInterval(nextUpdateTimerMBTA);
-        startUpdateCountdownMBTA(UPDATE_INTERVAL_MBTA);
-
-      } catch (error) {
-        console.error('Error:', error);
-        document.getElementById('error-message').textContent =
-          'Failed to update travel time. Will retry automatically.';
-        document.getElementById('error-message').style.display = 'block';
-      }
-    }
-
-    function updateUI(data) {
-      // data contains: duration, distanceMeters (for home -> apartment), and
-      // reverseDuration and reverseDistanceMeters (for apartment -> home)
-      const drivingToSec = parseInt(data.to.duration.replace("s", ""), 10);
-      const drivingFromSec = parseInt(data.from.duration.replace("s", ""), 10);
-
-      document.getElementById('to-time').textContent = formatDuration(drivingToSec);
-      document.getElementById('to-time').className = drivingTimeClass(drivingToSec);
-      document.getElementById('to-distance').textContent = formatDistance(data.to.distanceMeters);
-
-      document.getElementById('from-time').textContent = formatDuration(drivingFromSec);
-      document.getElementById('from-time').className = drivingTimeClass(drivingFromSec);
-      document.getElementById('from-distance').textContent = formatDistance(data.from.distanceMeters);
-
-      document.getElementById('timestamp').textContent = new Date(data.timestamp).toLocaleString();
-
-      // Update cache status
-      const cacheStatus = document.getElementById('cache-status');
-      if (data.cached) {
-        cacheStatus.textContent = `Cached (${Math.ceil(data.cacheTTL)} sec remaining)`;
-        cacheStatus.className = 'cache-status cache-stale';
-      } else {
-        cacheStatus.textContent = 'Fresh';
-        cacheStatus.className = 'cache-status cache-fresh';
+      setupRefreshButton() {
+        const refreshButton = document.getElementById('refresh-button');
+        refreshButton.onclick = () => this.handleManualRefresh();
       }
 
-      // Enable refresh button
-      document.getElementById('refresh-button').disabled = false;
-    }
+      async handleManualRefresh() {
+        if (this.state.isRefreshing) return;
 
-    function updateTrainDisplay(predictions) {
-      console.log(`Updating trains from predictions: ${JSON.stringify(predictions)}`)
-      const trainsDiv = document.getElementById('trains');
-      if (!predictions || predictions.length === 0) {
-        trainsDiv.innerHTML = '<p>No predictions available</p>';
-        return;
-      }
+        const now = Date.now();
+        const timeSinceLastDriving = now - this.state.lastRequestTimeDriving;
+        const timeSinceLastMBTA = now - this.state.lastRequestTimeMBTA;
 
-      // Separate predictions by direction
-      const northbound = predictions.filter(p => p.direction === "Northbound");
-      const southbound = predictions.filter(p => p.direction === "Southbound");
-
-      let html = '';
-
-      html += `<div class="train-time">`
-
-      // Display northbound (toward Alewife)
-      html += `<div class="train-direction">↑ <i>Alewife</i>: `;
-      let elts = northbound.map((prediction) => {
-        if (showTimePrediction(prediction.arrival))
-          return `
-          <span class="${prediction.arrival ? 'train-arriving' : ''}">
-            ${prediction.arrival ? formatTimeUntil(prediction.arrival) : 'No prediction'}</span>
-          ${prediction.status ? `<span class="train-status">${prediction.status}</span>` : ''}`
-        else
-          return null;
-      })
-      html += elts.filter(x => x != null).join('|')
-      html += `</div>`
-
-      // Display southbound (toward Ashmont/Braintree)
-      html += `<div class="train-direction">↓ <i>Ashmont/Braintree</i>: `;
-      elts = southbound.map((prediction) => {
-        if (showTimePrediction(prediction.arrival))
-          return `
-          <span class="${prediction.arrival ? 'train-arriving' : ''}">
-            ${prediction.arrival ? formatTimeUntil(prediction.arrival) : 'No prediction'}
-          </span>
-          ${prediction.status ? `<span class="train-status">${prediction.status}</span>` : ''}`
-        else
-          return null;
-      })
-      html += elts.filter(x => x != null).join('|')
-      html += `</div></div>`;
-
-      trainsDiv.innerHTML = html || '<p>No predictions available</p>';
-    }
-
-
-    function startUpdateCountdown(duration) {
-      const refreshButton = document.getElementById('refresh-button');
-      const nextUpdateSpan = document.getElementById('next-update');
-      let timeLeft = Math.floor(duration / 1000);
-
-      nextUpdateTimerDriving = setInterval(() => {
-        timeLeft -= 1;
-        if (timeLeft <= 0) {
-          nextUpdateSpan.textContent = 'Updating...';
-          refreshButton.disabled = true;
-          clearInterval(nextUpdateTimerDriving);
-          fetchTravelTime();
-        } else {
-          nextUpdateSpan.textContent = `${timeLeft} seconds`;
+        if (timeSinceLastDriving < this.constants.MIN_REQUEST_INTERVAL || 
+            timeSinceLastMBTA < this.constants.MIN_REQUEST_INTERVAL) {
+          const waitTime = Math.ceil(
+            (this.constants.MIN_REQUEST_INTERVAL - Math.min(timeSinceLastDriving, timeSinceLastMBTA)) / 1000
+          );
+          this.showError(`Please wait ${waitTime} seconds before refreshing again.`);
+          return;
         }
-      }, 1000);
 
-      nextUpdateSpan.textContent = `${timeLeft} seconds`;
-    }
+        this.setRefreshState(true);
 
-    function startUpdateCountdownMBTA(duration) {
-      const refreshButton = document.getElementById('refresh-button');
-      const nextUpdateSpan = document.getElementById('next-update-mbta');
-      let timeLeft = Math.floor(duration / 1000);
-
-      nextUpdateTimerMBTA = setInterval(() => {
-        timeLeft -= 1;
-        if (timeLeft <= 0) {
-          nextUpdateSpan.textContent = 'Updating...';
-          refreshButton.disabled = true;
-          clearInterval(nextUpdateTimerMBTA);
-          fetchMBTAPredictions();
-        } else {
-          nextUpdateSpan.textContent = `${timeLeft} seconds`;
+        try {
+          await Promise.all([
+            this.fetchDrivingData(true),
+            this.fetchMBTAData(true)
+          ]);
+        } finally {
+          this.setRefreshState(false);
         }
-      }, 1000);
+      }
 
-      nextUpdateSpan.textContent = `${timeLeft} seconds`;
+      setRefreshState(isRefreshing) {
+        this.state.isRefreshing = isRefreshing;
+        const refreshButton = document.getElementById('refresh-button');
+        refreshButton.disabled = isRefreshing;
+      }
+
+      showError(message) {
+        const errorElement = document.getElementById('error-message');
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+        setTimeout(() => {
+          errorElement.style.display = 'none';
+        }, 3000);
+      }
+
+      async fetchWithTimeout(url, timeout = 10000) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        try {
+          const response = await fetch(url, { signal: controller.signal });
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          return await response.json();
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      }
+
+      async fetchDrivingData(isManual = false) {
+        try {
+          this.state.lastRequestTimeDriving = Date.now();
+          this.clearError();
+
+          const data = await this.fetchWithTimeout(this.constants.ENDPOINTS.DRIVING);
+          this.updateDrivingUI(data);
+          this.startUpdateCountdown('driving');
+
+        } catch (error) {
+          console.error('Driving data fetch error:', error);
+          this.showError('Failed to update driving time. Will retry automatically.');
+          if (!isManual) {
+            setTimeout(() => this.fetchDrivingData(), 30000); // Retry after 30 seconds
+          }
+        }
+      }
+
+      async fetchMBTAData(isManual = false) {
+        try {
+          this.state.lastRequestTimeMBTA = Date.now();
+          this.clearError();
+
+          const data = await this.fetchWithTimeout(this.constants.ENDPOINTS.MBTA);
+          this.updateMBTAUI(data.predictions);
+          this.startUpdateCountdown('mbta');
+
+        } catch (error) {
+          console.error('MBTA data fetch error:', error);
+          this.showError('Failed to update MBTA data. Will retry automatically.');
+          if (!isManual) {
+            setTimeout(() => this.fetchMBTAData(), 30000); // Retry after 30 seconds
+          }
+        }
+      }
+
+      clearError() {
+        document.getElementById('error-message').style.display = 'none';
+      }
+
+      updateDrivingUI(data) {
+        const { formatDuration, formatDistance, drivingTimeClass } = this.constructor.formatters;
+
+        const drivingToSec = parseInt(data.to.duration.replace("s", ""), 10);
+        const drivingFromSec = parseInt(data.from.duration.replace("s", ""), 10);
+
+        this.updateElement('to-time', formatDuration(drivingToSec), drivingTimeClass(drivingToSec));
+        this.updateElement('to-distance', formatDistance(data.to.distanceMeters));
+        this.updateElement('from-time', formatDuration(drivingFromSec), drivingTimeClass(drivingFromSec));
+        this.updateElement('from-distance', formatDistance(data.from.distanceMeters));
+
+        document.getElementById('timestamp').textContent = new Date(data.timestamp).toLocaleString();
+
+        const cacheStatus = document.getElementById('cache-status');
+        if (data.cached) {
+          cacheStatus.textContent = `Cached (${Math.ceil(data.cacheTTL)} sec remaining)`;
+          cacheStatus.className = 'cache-status cache-stale';
+        } else {
+          cacheStatus.textContent = 'Fresh';
+          cacheStatus.className = 'cache-status cache-fresh';
+        }
+      }
+
+      updateElement(id, text, className = '') {
+        const element = document.getElementById(id);
+        element.textContent = text;
+        if (className) element.className = className;
+      }
+
+      updateMBTAUI(predictions) {
+        const trainsDiv = document.getElementById('trains');
+        if (!predictions?.length) {
+          trainsDiv.innerHTML = '<p>No predictions available</p>';
+          return;
+        }
+
+        const northbound = predictions.filter(p => p.direction === "Northbound");
+        const southbound = predictions.filter(p => p.direction === "Southbound");
+
+        const createDirectionHTML = (trains, direction) => {
+          const symbol = direction === 'Northbound' ? '↑' : '↓';
+          const destination = direction === 'Northbound' ? 'Alewife' : 'Ashmont/Braintree';
+
+          const predictions = trains
+            .map(p => this.constructor.formatters.formatPrediction(p))
+            .filter(Boolean)
+            .join('|');
+
+          return `
+        <div class="train-direction">
+          ${symbol} <i>${destination}</i>: ${predictions || 'No predictions'}
+        </div>
+          `;
+        };
+
+        trainsDiv.innerHTML = `
+          <div class="train-time">
+            ${createDirectionHTML(northbound, 'Northbound')}
+            ${createDirectionHTML(southbound, 'Southbound')}
+          </div>
+        `;
+      }
+
+      startUpdateCountdown(type) {
+        if (this.state.timers[type]) {
+          clearInterval(this.state.timers[type]);
+        }
+
+        const config = {
+          driving: {
+            duration: this.constants.UPDATE_INTERVAL_DRIVING,
+            updateSpan: 'next-update',
+            fetchFn: () => this.fetchDrivingData()
+          },
+          mbta: {
+            duration: this.constants.UPDATE_INTERVAL_MBTA,
+            updateSpan: 'next-update-mbta',
+            fetchFn: () => this.fetchMBTAData()
+          }
+        }[type];
+
+        let timeLeft = Math.floor(config.duration / 1000);
+        const updateSpan = document.getElementById(config.updateSpan);
+
+        this.state.timers[type] = setInterval(() => {
+          timeLeft -= 1;
+          if (timeLeft <= 0) {
+            updateSpan.textContent = 'Updating...';
+            clearInterval(this.state.timers[type]);
+            config.fetchFn();
+          } else {
+            updateSpan.textContent = `${timeLeft} seconds`;
+          }
+        }, 1000);
+
+        updateSpan.textContent = `${timeLeft} seconds`;
+      }
+
+      static formatters = {
+        formatDuration(seconds) {
+          const hours = Math.floor(seconds / 3600);
+          const minutes = Math.floor((seconds % 3600) / 60);
+          const remainingSeconds = seconds % 60;
+          return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        },
+
+        formatDistance(meters) {
+          const miles = (meters / 1609.344).toFixed(2);
+          return `${miles} miles`;
+        },
+
+        drivingTimeClass(timeSec) {
+          if (timeSec > 40 * 60) return 'very-long-drive-time';
+          if (timeSec > 30 * 60) return 'long-drive-time';
+          return '';
+        },
+
+        formatPrediction(prediction) {
+          if (!this.showTimePrediction(prediction.arrival)) return null;
+
+          return `
+        <span class="${prediction.arrival ? 'train-arriving' : ''}">
+          ${prediction.arrival ? this.formatTimeUntil(prediction.arrival) : 'No prediction'}
+        </span>
+        ${prediction.status ? `<span class="train-status">${prediction.status}</span>` : ''}
+        `;
+        },
+
+        showTimePrediction(arrivalTime) {
+          if (!arrivalTime) return false;
+          const arrival = new Date(arrivalTime);
+          const now = new Date();
+          const diffMinutes = Math.round((arrival - now) / (1000 * 60));
+          return diffMinutes > -1;
+        },
+
+        formatTimeUntil(arrivalTime) {
+          const arrival = new Date(arrivalTime);
+          const now = new Date();
+          const diffMinutes = Math.round((arrival - now) / (1000 * 60));
+
+          if (diffMinutes < -1) return `${-diffMinutes} minutes ago`;
+          if (diffMinutes <= 0) return 'Now';
+          if (diffMinutes === 1) return '1 minute';
+          return `${diffMinutes} minutes`;
+        }
+      };
     }
 
-    async function manualRefresh() {
-      document.getElementById('refresh-button').disabled = true;
-      await fetchTravelTime(true);
-      await fetchMBTAPredictions(true);
-    }
-
-    function showTimePrediction(arrivalTime) {
-      const arrival = new Date(arrivalTime);
-      const now = new Date();
-      const diffMinutes = Math.round((arrival - now) / (1000 * 60));
-      return diffMinutes > -1;
-    }
-
-    function formatTimeUntil(arrivalTime) {
-      const arrival = new Date(arrivalTime);
-      const now = new Date();
-      const diffMinutes = Math.round((arrival - now) / (1000 * 60));
-
-      if (diffMinutes < -1) return `${-diffMinutes} minutes ago`;
-      if (diffMinutes <= 0) return 'Now';
-      if (diffMinutes === 1) return '1 minute';
-      return `${diffMinutes} minutes`;
-    }
-
-    function convertSecondsToHMS(timeArg) {
-      // Extract the numeric part of the string (which may end in "s") and convert it to an integer
-      const seconds = typeof(timeArg) == 'number' ? timeArg : parseInt(timeArg.replace("s", ""), 10);
-
-      // Calculate hours, minutes, and seconds
-      const hours = Math.floor(seconds / 3600);
-      const minutes = Math.floor((seconds % 3600) / 60);
-      const remainingSeconds = seconds % 60;
-
-      // Return formatted as "h:m:s"
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-    }
-
-    function formatDuration(duration) {
-      return convertSecondsToHMS(duration)
-    }
-
-    function formatDistance(meters) {
-      const miles = (meters / 1609.344).toFixed(2);
-      return `${miles} miles`;
-    }
-
-    function drivingTimeClass(timeSec) {
-      if (timeSec > 40 * 60)
-        return 'very-long-drive-time';
-      if (timeSec > 30 * 60)
-        return 'long-drive-time';
-      return '';
-    }
-
-    // Initial fetches
-    fetchTravelTime();
-    fetchMBTAPredictions();
+    // Initialize the application
+    const app = new TravelTimeMonitor();
     </script>
 </body>
 </html>
