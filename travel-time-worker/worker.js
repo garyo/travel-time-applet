@@ -2,6 +2,7 @@
  // SPDX-License-Identifier: MIT
 
 import {addresses, mbta} from './config.js';
+import {redLineStations} from './stations.js';
 
 
 async function getMBTAPredictions(mbta) {
@@ -29,13 +30,12 @@ async function getMBTAPredictions(mbta) {
 }
 
 // origin/dest should be e.g. {address: "123 any st"} (or lat/lon; see API docs)
-async function getTravelTime(origin, destination, env) {
+async function getTravelTime(origin, destination, env, travelMode = "DRIVE") {
   // Route parameters
   const routeParams = {
     origin: origin,
     destination: destination,
-    travelMode: "DRIVE",
-    routingPreference: "TRAFFIC_AWARE",
+    travelMode: travelMode,
     computeAlternativeRoutes: false,
     routeModifiers: {
       avoidTolls: false,
@@ -45,6 +45,11 @@ async function getTravelTime(origin, destination, env) {
     languageCode: "en-US",
     units: "IMPERIAL"
   };
+
+  // Only add routing preference for DRIVE mode
+  if (travelMode === "DRIVE") {
+    routeParams.routingPreference = "TRAFFIC_AWARE";
+  }
 
   // Fetch from Google API
   const googleResponse = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
@@ -76,12 +81,26 @@ async function getTravelTime(origin, destination, env) {
   return data.routes[0];        // should contain duration and distanceMeters
 }
 
-async function getCachedDriveTime(env) {
-  const cachedData = await env.TRAVEL_TIME_CACHE.get('drive-times', { type: 'json' });
+
+
+async function handleDriveTime(request, env) {
+  const url = new URL(request.url);
+  const originParam = url.searchParams.get('origin');
+  const destinationParam = url.searchParams.get('destination');
+
+  // Use custom addresses if provided, otherwise use defaults from config
+  const origin = originParam ? { address: originParam } : addresses.origin;
+  const destination = destinationParam ? { address: destinationParam } : addresses.destination;
+
+  // Generate cache key based on addresses
+  const cacheKey = `drive-times-${JSON.stringify(origin)}-${JSON.stringify(destination)}`;
+
+  // Check cache first
+  const cachedData = await env.TRAVEL_TIME_CACHE.get(cacheKey, { type: 'json' });
   if (cachedData) {
-    const age = Date.now() - cachedData.timestamp; // msec
-    // Return cached data if it's less than 4 minutes old
+    const age = Date.now() - cachedData.timestamp;
     if (age < 4 * 60 * 1000) {
+      console.log('Returning cached drive times');
       return {
         ...cachedData,
         cached: true,
@@ -89,29 +108,10 @@ async function getCachedDriveTime(env) {
       };
     }
   }
-  return null;
-}
-
-async function cacheDriveTime(data, env) {
-  // Don't store the cached flag in KV storage
-  const { cached, ...dataToCache } = data;
-  await env.TRAVEL_TIME_CACHE.put('drive-times', JSON.stringify(dataToCache), {
-    expirationTtl: 300 // 5 minutes in seconds
-  });
-}
-
-
-async function handleDriveTime(request, env) {
-  // Check cache first
-  const cachedData = await getCachedDriveTime(env);
-  if (cachedData) {
-    console.log('Returning cached drive times');
-    return cachedData;
-  }
 
   const [route1, route2] = await Promise.all([
-    getTravelTime(addresses.origin, addresses.destination, env),
-    getTravelTime(addresses.destination, addresses.origin, env)]);
+    getTravelTime(origin, destination, env),
+    getTravelTime(destination, origin, env)]);
 
   const responseData = {
     to: {
@@ -126,12 +126,61 @@ async function handleDriveTime(request, env) {
     cached: false
   };
 
-  await cacheDriveTime(responseData, env);
+  // Cache with the specific cache key
+  const { cached, ...dataToCache } = responseData;
+  await env.TRAVEL_TIME_CACHE.put(cacheKey, JSON.stringify(dataToCache), {
+    expirationTtl: 300 // 5 minutes in seconds
+  });
+  
   return responseData;
 }
 
 async function handleMBTA(request, env) {
-  const mbtaTrains = await getMBTAPredictions(mbta)
+  const url = new URL(request.url);
+  const stationParam = url.searchParams.get('station');
+  const destinationParam = url.searchParams.get('destination');
+
+  // Use custom station if provided, otherwise use default from config
+  const mbtaConfig = stationParam ? 
+    { stationId: stationParam, routeId: 'Red' } : 
+    mbta;
+
+  const mbtaTrains = await getMBTAPredictions(mbtaConfig);
+  
+  // Calculate walking time if destination provided
+  let walkingTime = null;
+  if (destinationParam && stationParam && redLineStations[stationParam]) {
+    try {
+      const station = redLineStations[stationParam];
+      const stationLocation = {
+        location: {
+          latLng: {
+            latitude: station.lat,
+            longitude: station.lng
+          }
+        }
+      };
+      
+      const route = await getTravelTime(
+        stationLocation,
+        { address: destinationParam },
+        env,
+        "WALK"
+      );
+      
+      if (route && route.duration) {
+        const seconds = parseInt(route.duration.replace("s", ""), 10);
+        walkingTime = {
+          seconds: seconds,
+          minutes: Math.ceil(seconds / 60),
+          distance: route.distanceMeters
+        };
+      }
+    } catch (error) {
+      console.error('Failed to calculate walking time:', error);
+    }
+  }
+  
   return {
     predictions: mbtaTrains.map(pred => ({
       arrival: pred.arrival,
@@ -139,6 +188,8 @@ async function handleMBTA(request, env) {
       direction: pred.direction === 0 ? "Southbound" : "Northbound",
       status: pred.status
     })),
+    walkingTime: walkingTime,
+    stationName: redLineStations[stationParam]?.name || 'Unknown',
     timestamp: Date.now(),
     cached: false
   }

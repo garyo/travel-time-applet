@@ -3,137 +3,243 @@
 
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Travel Time Monitor</title>
     <style>
-     body {
-       font-family: Arial, sans-serif;
-       max-width: 800px;
-       margin: 0 auto;
-       padding: 20px;
-       line-height: 1.6;
-     }
-     h2 {
-       margin-top: 5px;
-       margin-bottom: 5px;
-     }
-     .travel-info {
-       border: 1px solid #ccc;
-       padding: 10px;
-       border-radius: 5px;
-       margin-top: 10px;
-       background: #f9f9f9;
-     }
-     .travel-grid {
-       display: grid;
-       grid-template-columns: auto auto auto;
-       width: fit-content;
-       gap: 12px;
-       margin: 0px 0;
-       background: #f9f9f9;
-       padding: 10px;
-       border-radius: 5px;
-       border: 1px solid #ccc;
-     }
-     .grid-header {
-       font-weight: bold;
-       padding: 10px;
-       background: #eee;
-       border-radius: 4px;
-     }
-     .grid-label {
-       font-weight: bold;
-     }
-     .grid-cell {
-       background: white;
-       border-radius: 4px;
-       min-height: 1.5em;
-     }
-     .grid-row {
-       display: contents;
-     }
-     .grid2 {
-       display: grid;
-       grid-template-columns: auto auto;
-     }
-     @media (max-width: 600px) {
-       .grid2 {
-         grid-template-columns: 1fr;  /* one column */
-       }
-     }
-     .long-drive-time {
-       color: #995200;
-       background: #ffffdd;
-     }
-     .very-long-drive-time {
-       color: #995200;
-       font-weight: bold;
-       background: #ffff88;
-     }
-     .timestamp {
-       color: #666;
-       font-size: 0.9em;
-     }
-     .cache-status {
-       display: inline-block;
-       padding: 3px 8px;
-       border-radius: 3px;
-       font-size: 0.85em;
-       margin-left: 8px;
-     }
-     .cache-fresh {
-       background-color: #e6ffe6;
-       color: #006600;
-     }
-     .cache-stale {
-       background-color: #fff3e6;
-       color: #995200;
-     }
-     .error {
-       color: #ff0000;
-       background: #ffe6e6;
-       padding: 10px;
-       border-radius: 3px;
-       margin-top: 10px;
-       display: none;
-     }
-     .refresh-button {
-       background: #4CAF50;
-       color: white;
-       border: none;
-       padding: 10px 20px;
-       border-radius: 5px;
-       cursor: pointer;
-       margin-top: 10px;
-     }
-     .refresh-button:hover {
-       background: #45a049;
-     }
-     .refresh-button:disabled {
-       background: #cccccc;
-       cursor: not-allowed;
-     }
-     .next-update {
-       color: #666;
-       font-size: 0.9em;
-     }
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      h2 {
+        margin-top: 5px;
+        margin-bottom: 5px;
+      }
+      .travel-info {
+        border: 1px solid #ccc;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 10px;
+        background: #f9f9f9;
+      }
+      .travel-grid {
+        display: grid;
+        grid-template-columns: auto auto auto;
+        width: fit-content;
+        gap: 12px;
+        margin: 0px 0;
+        background: #f9f9f9;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+      }
+      .grid-header {
+        font-weight: bold;
+        padding: 10px;
+        background: #eee;
+        border-radius: 4px;
+      }
+      .grid-label {
+        font-weight: bold;
+      }
+      .grid-cell {
+        background: white;
+        border-radius: 4px;
+        min-height: 1.5em;
+      }
+      .grid-row {
+        display: contents;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: auto auto;
+      }
+      @media (max-width: 600px) {
+        .grid2 {
+          grid-template-columns: 1fr; /* one column */
+        }
+      }
+      .long-drive-time {
+        color: #995200;
+        background: #ffffdd;
+      }
+      .very-long-drive-time {
+        color: #995200;
+        font-weight: bold;
+        background: #ffff88;
+      }
+      .timestamp {
+        color: #666;
+        font-size: 0.9em;
+      }
+      .cache-status {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 3px;
+        font-size: 0.85em;
+        margin-left: 8px;
+      }
+      .cache-fresh {
+        background-color: #e6ffe6;
+        color: #006600;
+      }
+      .cache-stale {
+        background-color: #fff3e6;
+        color: #995200;
+      }
+      .error {
+        color: #ff0000;
+        background: #ffe6e6;
+        padding: 10px;
+        border-radius: 3px;
+        margin-top: 10px;
+        display: none;
+      }
+      .refresh-button {
+        background: #4caf50;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+      .refresh-button:hover {
+        background: #45a049;
+      }
+      .refresh-button:disabled {
+        background: #cccccc;
+        cursor: not-allowed;
+      }
+      .next-update {
+        color: #666;
+        font-size: 0.9em;
+      }
+      .settings-container {
+        margin-top: 20px;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        background: #f5f5f5;
+      }
+      .settings-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        user-select: none;
+      }
+      .settings-header h3 {
+        margin: 0;
+      }
+      .settings-toggle {
+        font-size: 1.2em;
+        transition: transform 0.2s;
+      }
+      .settings-toggle.open {
+        transform: rotate(90deg);
+      }
+      .settings-content {
+        display: none;
+        margin-top: 15px;
+      }
+      .settings-content.open {
+        display: block;
+      }
+      .settings-group {
+        margin-bottom: 15px;
+      }
+      .settings-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      .settings-group input,
+      .settings-group select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        font-size: 14px;
+      }
+      .settings-group small {
+        display: block;
+        margin-top: 3px;
+        color: #666;
+        font-size: 0.85em;
+      }
+      .settings-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+      }
+      .settings-button {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .settings-button.save {
+        background: #4caf50;
+        color: white;
+      }
+      .settings-button.save:hover {
+        background: #45a049;
+      }
+      .settings-button.reset {
+        background: #f44336;
+        color: white;
+      }
+      .settings-button.reset:hover {
+        background: #da190b;
+      }
+      .walking-info {
+        background: #f0f8ff;
+        padding: 8px 12px;
+        margin: 10px 0;
+        border-radius: 4px;
+        font-size: 0.9em;
+        border-left: 3px solid #2196f3;
+      }
+      .train-catchable {
+        background: #e8f5e9;
+        padding: 2px 6px;
+        border-radius: 3px;
+        border: 1px solid #4caf50;
+      }
+      .train-missed {
+        opacity: 0.5;
+        text-decoration: line-through;
+      }
+      .walking-icon {
+        margin-right: 5px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="travel-info">
       <div class="travel-info">
         <div class="grid2">
-        <h2>🚇 Next Red Line Trains at Kendall/MIT</h2>
-        <p class="next-update">Next update in: <span id="next-update-mbta">-</span></p>
+          <h2>🚇 Next Red Line Trains at Kendall/MIT</h2>
+          <p class="next-update">
+            Next update in: <span id="next-update-mbta">-</span>
+          </p>
+        </div>
+        <div id="walking-info" class="walking-info" style="display: none">
+          <span class="walking-icon">🚶</span>
+          <span id="walking-text"></span>
         </div>
         <div id="trains">Loading...</div>
       </div>
       <h2>🚘 Current Driving Times</h2>
       <div class="travel-grid">
         <div class="grid-row">
-          <div class="grid-label">→ To Apt</div>
+          <div class="grid-label">→ To Dest</div>
           <div class="grid-cell" id="to-time">Loading...</div>
           <div class="grid-cell" id="to-distance">Loading...</div>
         </div>
@@ -149,299 +255,659 @@
           Last updated: <span id="timestamp">-</span>
           <span id="cache-status" class="cache-status"></span>
         </div>
-        <div class="next-update">Next update in: <span id="next-update">-</span></div>
+        <div class="next-update">
+          Next update in: <span id="next-update">-</span>
+        </div>
       </div>
-      <button id="refresh-button" class="refresh-button" onclick="manualRefresh()">
+      <button
+        id="refresh-button"
+        class="refresh-button"
+        onclick="manualRefresh()"
+      >
         Refresh Now
       </button>
       <p id="error-message" class="error"></p>
     </div>
 
+    <div class="settings-container">
+      <div class="settings-header" onclick="toggleSettings()">
+        <h3>⚙️ Settings</h3>
+        <span class="settings-toggle" id="settings-toggle">▶</span>
+      </div>
+      <div class="settings-content" id="settings-content">
+        <div class="settings-group">
+          <label for="home-address">Home Address</label>
+          <input
+            type="text"
+            id="home-address"
+            placeholder="e.g., 795 Massachusetts Ave, Cambridge, MA 02139"
+          />
+          <small>Your home address for driving time calculations</small>
+        </div>
+        <div class="settings-group">
+          <label for="destination-address">Destination Address</label>
+          <input
+            type="text"
+            id="destination-address"
+            placeholder="e.g., 77 Massachusetts Ave, Cambridge, MA 02139"
+          />
+          <small>Your destination address for driving time calculations</small>
+        </div>
+        <div class="settings-group">
+          <label for="mbta-station">MBTA Station</label>
+          <select id="mbta-station">
+            <option value="place-knncl">Kendall/MIT</option>
+            <option value="place-chmnl">Charles/MGH</option>
+            <option value="place-pktrm">Park Street</option>
+            <option value="place-dwnxg">Downtown Crossing</option>
+            <option value="place-sstat">South Station</option>
+            <option value="place-harsq">Harvard</option>
+            <option value="place-portr">Porter</option>
+            <option value="place-davis">Davis</option>
+            <option value="place-cntsq">Central Square</option>
+            <option value="place-asmnl">Alewife</option>
+            <option value="place-jfk">JFK/UMass</option>
+            <option value="place-andrw">Andrew</option>
+            <option value="place-brdwy">Broadway</option>
+          </select>
+          <small>Select your Red Line station for train predictions</small>
+        </div>
+        <div class="settings-actions">
+          <button class="settings-button save" onclick="saveSettings()">
+            Save Settings
+          </button>
+          <button class="settings-button reset" onclick="resetSettings()">
+            Reset to Defaults
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div style="background: #e8f4fd; border: 1px solid #4a90e2; padding: 15px; border-radius: 5px; margin-top: 20px;">
+      <strong>ℹ️ About this applet:</strong> This applet is for people whose home isn't on the Red Line, but work or some other destination is. It shows driving times both ways, and next train arrival times, to help you plan your transportation.
+    </div>
+
     <script>
-    // State management class to handle application state
-    class TravelTimeMonitor {
-      constructor() {
-        this.state = {
-          lastRequestTimeDriving: 0,
-          lastRequestTimeMBTA: 0,
-          timers: {
-            driving: null,
-            mbta: null
-          },
-          isRefreshing: false
-        };
+      // Configuration management
+      class ConfigManager {
+        constructor() {
+          this.defaults = {
+            homeAddress: "",
+            destinationAddress: "",
+            mbtaStation: "place-knncl",
+            mbtaStationName: "Kendall/MIT",
+            isFirstVisit: true,
+          };
+        }
 
-        this.constants = {
-          UPDATE_INTERVAL_DRIVING: 5 * 60 * 1000,
-          UPDATE_INTERVAL_MBTA: 1 * 60 * 1000,
-          MIN_REQUEST_INTERVAL: 10000,
-          ENDPOINTS: {
-            MBTA: 'https://travel-time-worker.garyo.workers.dev/mbta',
-            DRIVING: 'https://travel-time-worker.garyo.workers.dev/driving'
+        load() {
+          const stored = localStorage.getItem("travelTimeConfig");
+          if (stored) {
+            try {
+              const config = JSON.parse(stored);
+              return { ...this.defaults, ...config, isFirstVisit: false };
+            } catch (e) {
+              console.error("Failed to parse stored config:", e);
+            }
           }
-        };
+          return this.defaults;
+        }
 
-        this.init();
-      }
-
-      init() {
-        this.fetchDrivingData();
-        this.fetchMBTAData();
-        this.setupRefreshButton();
-      }
-
-      setupRefreshButton() {
-        const refreshButton = document.getElementById('refresh-button');
-        refreshButton.onclick = () => this.handleManualRefresh();
-      }
-
-      async handleManualRefresh() {
-        if (this.state.isRefreshing) return;
-
-        const now = Date.now();
-        const timeSinceLastDriving = now - this.state.lastRequestTimeDriving;
-        const timeSinceLastMBTA = now - this.state.lastRequestTimeMBTA;
-
-        if (timeSinceLastDriving < this.constants.MIN_REQUEST_INTERVAL || 
-            timeSinceLastMBTA < this.constants.MIN_REQUEST_INTERVAL) {
-          const waitTime = Math.ceil(
-            (this.constants.MIN_REQUEST_INTERVAL - Math.min(timeSinceLastDriving, timeSinceLastMBTA)) / 1000
+        hasValidAddresses() {
+          const config = this.load();
+          return (
+            config.homeAddress &&
+            config.homeAddress.length > 0 &&
+            config.destinationAddress &&
+            config.destinationAddress.length > 0
           );
-          this.showError(`Please wait ${waitTime} seconds before refreshing again.`);
-          return;
         }
 
-        this.setRefreshState(true);
-
-        try {
-          await Promise.all([
-            this.fetchDrivingData(true),
-            this.fetchMBTAData(true)
-          ]);
-        } finally {
-          this.setRefreshState(false);
+        save(config) {
+          localStorage.setItem("travelTimeConfig", JSON.stringify(config));
         }
-      }
 
-      setRefreshState(isRefreshing) {
-        this.state.isRefreshing = isRefreshing;
-        const refreshButton = document.getElementById('refresh-button');
-        refreshButton.disabled = isRefreshing;
-      }
+        reset() {
+          localStorage.removeItem("travelTimeConfig");
+          return this.defaults;
+        }
 
-      showError(message) {
-        const errorElement = document.getElementById('error-message');
-        errorElement.textContent = message;
-        errorElement.style.display = 'block';
-        setTimeout(() => {
-          errorElement.style.display = 'none';
-        }, 3000);
-      }
-
-      async fetchWithTimeout(url, timeout = 10000) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-        try {
-          const response = await fetch(url, { signal: controller.signal });
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          return await response.json();
-        } finally {
-          clearTimeout(timeoutId);
+        getStationName(stationId) {
+          const stations = {
+            "place-knncl": "Kendall/MIT",
+            "place-chmnl": "Charles/MGH",
+            "place-pktrm": "Park Street",
+            "place-dwnxg": "Downtown Crossing",
+            "place-sstat": "South Station",
+            "place-harsq": "Harvard",
+            "place-portr": "Porter",
+            "place-davis": "Davis",
+            "place-cntsq": "Central Square",
+            "place-asmnl": "Alewife",
+            "place-jfk": "JFK/UMass",
+            "place-andrw": "Andrew",
+            "place-brdwy": "Broadway",
+          };
+          return stations[stationId] || "Unknown Station";
         }
       }
 
-      async fetchDrivingData(isManual = false) {
-        try {
-          this.state.lastRequestTimeDriving = Date.now();
-          this.clearError();
+      // State management class to handle application state
+      class TravelTimeMonitor {
+        constructor() {
+          this.configManager = new ConfigManager();
+          this.config = this.configManager.load();
+          this.state = {
+            lastRequestTimeDriving: 0,
+            lastRequestTimeMBTA: 0,
+            timers: {
+              driving: null,
+              mbta: null,
+            },
+            isRefreshing: false,
+          };
 
-          const data = await this.fetchWithTimeout(this.constants.ENDPOINTS.DRIVING);
-          this.updateDrivingUI(data);
-          this.startUpdateCountdown('driving');
+          this.constants = {
+            UPDATE_INTERVAL_DRIVING: 5 * 60 * 1000,
+            UPDATE_INTERVAL_MBTA: 1 * 60 * 1000,
+            MIN_REQUEST_INTERVAL: 10000,
+            ENDPOINTS: {
+              MBTA: "https://travel-time-worker.garyo.workers.dev/mbta",
+              DRIVING: "https://travel-time-worker.garyo.workers.dev/driving",
+            },
+          };
 
-        } catch (error) {
-          console.error('Driving data fetch error:', error);
-          this.showError('Failed to update driving time. Will retry automatically.');
-          if (!isManual) {
-            setTimeout(() => this.fetchDrivingData(), 30000); // Retry after 30 seconds
+          this.updateUIWithConfig();
+
+          this.init();
+        }
+
+        init() {
+          this.loadSettingsUI();
+
+          // Check if this is first visit or no addresses configured
+          if (!this.configManager.hasValidAddresses()) {
+            // Open settings panel automatically
+            const content = document.getElementById("settings-content");
+            const toggle = document.getElementById("settings-toggle");
+            content.classList.add("open");
+            toggle.classList.add("open");
+
+            // Show a message
+            this.showError(
+              "Please configure your home and destination addresses to get started"
+            );
+
+            // Still fetch MBTA data since station is set
+            this.fetchMBTAData();
+          } else {
+            // Normal startup with both fetches
+            this.fetchDrivingData();
+            this.fetchMBTAData();
+          }
+
+          this.setupRefreshButton();
+        }
+
+        loadSettingsUI() {
+          document.getElementById("home-address").value =
+            this.config.homeAddress;
+          document.getElementById("destination-address").value =
+            this.config.destinationAddress;
+          document.getElementById("mbta-station").value =
+            this.config.mbtaStation;
+        }
+
+        updateUIWithConfig() {
+          const stationName = this.configManager.getStationName(
+            this.config.mbtaStation
+          );
+          const mbtaHeader = document.querySelector(".grid2 h2");
+          if (mbtaHeader) {
+            mbtaHeader.textContent = `🚇 Next Red Line Trains at ${stationName}`;
           }
         }
-      }
 
-      async fetchMBTAData(isManual = false) {
-        try {
-          this.state.lastRequestTimeMBTA = Date.now();
-          this.clearError();
+        updateConfig(newConfig) {
+          this.config = { ...this.config, ...newConfig };
+          this.configManager.save(this.config);
+          this.updateUIWithConfig();
+        }
 
-          const data = await this.fetchWithTimeout(this.constants.ENDPOINTS.MBTA);
-          this.updateMBTAUI(data.predictions);
-          this.startUpdateCountdown('mbta');
+        setupRefreshButton() {
+          const refreshButton = document.getElementById("refresh-button");
+          refreshButton.onclick = () => this.handleManualRefresh();
+        }
 
-        } catch (error) {
-          console.error('MBTA data fetch error:', error);
-          this.showError('Failed to update MBTA data. Will retry automatically.');
-          if (!isManual) {
-            setTimeout(() => this.fetchMBTAData(), 30000); // Retry after 30 seconds
+        async handleManualRefresh() {
+          if (this.state.isRefreshing) return;
+
+          const now = Date.now();
+          const timeSinceLastDriving = now - this.state.lastRequestTimeDriving;
+          const timeSinceLastMBTA = now - this.state.lastRequestTimeMBTA;
+
+          if (
+            timeSinceLastDriving < this.constants.MIN_REQUEST_INTERVAL ||
+            timeSinceLastMBTA < this.constants.MIN_REQUEST_INTERVAL
+          ) {
+            const waitTime = Math.ceil(
+              (this.constants.MIN_REQUEST_INTERVAL -
+                Math.min(timeSinceLastDriving, timeSinceLastMBTA)) /
+                1000
+            );
+            this.showError(
+              `Please wait ${waitTime} seconds before refreshing again.`
+            );
+            return;
+          }
+
+          this.setRefreshState(true);
+
+          try {
+            await Promise.all([
+              this.fetchDrivingData(true),
+              this.fetchMBTAData(true),
+            ]);
+          } finally {
+            this.setRefreshState(false);
           }
         }
-      }
 
-      clearError() {
-        document.getElementById('error-message').style.display = 'none';
-      }
-
-      updateDrivingUI(data) {
-        const { formatDuration, formatDistance, drivingTimeClass } = this.constructor.formatters;
-
-        const drivingToSec = parseInt(data.to.duration.replace("s", ""), 10);
-        const drivingFromSec = parseInt(data.from.duration.replace("s", ""), 10);
-
-        this.updateElement('to-time', formatDuration(drivingToSec), drivingTimeClass(drivingToSec));
-        this.updateElement('to-distance', formatDistance(data.to.distanceMeters));
-        this.updateElement('from-time', formatDuration(drivingFromSec), drivingTimeClass(drivingFromSec));
-        this.updateElement('from-distance', formatDistance(data.from.distanceMeters));
-
-        document.getElementById('timestamp').textContent = new Date(data.timestamp).toLocaleString();
-
-        const cacheStatus = document.getElementById('cache-status');
-        if (data.cached) {
-          cacheStatus.textContent = `Cached (${Math.ceil(data.cacheTTL)} sec remaining)`;
-          cacheStatus.className = 'cache-status cache-stale';
-        } else {
-          cacheStatus.textContent = 'Fresh';
-          cacheStatus.className = 'cache-status cache-fresh';
-        }
-      }
-
-      updateElement(id, text, className = '') {
-        const element = document.getElementById(id);
-        element.textContent = text;
-        if (className) element.className = className;
-      }
-
-      updateMBTAUI(predictions) {
-        const trainsDiv = document.getElementById('trains');
-        if (!predictions?.length) {
-          trainsDiv.innerHTML = '<p>No predictions available</p>';
-          return;
+        setRefreshState(isRefreshing) {
+          this.state.isRefreshing = isRefreshing;
+          const refreshButton = document.getElementById("refresh-button");
+          refreshButton.disabled = isRefreshing;
         }
 
-        const northbound = predictions.filter(p => p.direction === "Northbound");
-        const southbound = predictions.filter(p => p.direction === "Southbound");
+        showError(message) {
+          const errorElement = document.getElementById("error-message");
+          errorElement.textContent = message;
+          errorElement.style.display = "block";
+          setTimeout(() => {
+            errorElement.style.display = "none";
+          }, 3000);
+        }
 
-        const createDirectionHTML = (trains, direction) => {
-          const symbol = direction === 'Northbound' ? '↑' : '↓';
-          const destination = direction === 'Northbound' ? 'Alewife' : 'Ashmont/Braintree';
+        async fetchWithTimeout(url, timeout = 10000) {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-          const predictions = trains
-            .map(p => this.constructor.formatters.formatPrediction(p))
-            .filter(Boolean)
-            .join('|');
+          try {
+            const response = await fetch(url, { signal: controller.signal });
+            if (!response.ok)
+              throw new Error(`HTTP error! status: ${response.status}`);
+            return await response.json();
+          } finally {
+            clearTimeout(timeoutId);
+          }
+        }
 
-          return `
+        async fetchDrivingData(isManual = false) {
+          // Don't fetch if addresses are not configured
+          if (!this.config.homeAddress || !this.config.destinationAddress) {
+            document.getElementById("to-time").textContent = "Not configured";
+            document.getElementById("to-distance").textContent = "-";
+            document.getElementById("from-time").textContent = "Not configured";
+            document.getElementById("from-distance").textContent = "-";
+            return;
+          }
+
+          try {
+            this.state.lastRequestTimeDriving = Date.now();
+            this.clearError();
+
+            const url = new URL(this.constants.ENDPOINTS.DRIVING);
+            url.searchParams.append("origin", this.config.homeAddress);
+            url.searchParams.append(
+              "destination",
+              this.config.destinationAddress
+            );
+
+            const data = await this.fetchWithTimeout(url.toString());
+            this.updateDrivingUI(data);
+            this.startUpdateCountdown("driving");
+          } catch (error) {
+            console.error("Driving data fetch error:", error);
+            this.showError(
+              "Failed to update driving time. Will retry automatically."
+            );
+            if (!isManual) {
+              setTimeout(() => this.fetchDrivingData(), 30000); // Retry after 30 seconds
+            }
+          }
+        }
+
+        async fetchMBTAData(isManual = false) {
+          try {
+            this.state.lastRequestTimeMBTA = Date.now();
+            this.clearError();
+
+            const url = new URL(this.constants.ENDPOINTS.MBTA);
+            url.searchParams.append("station", this.config.mbtaStation);
+
+            // Include destination for walking time calculation
+            if (this.config.destinationAddress) {
+              url.searchParams.append(
+                "destination",
+                this.config.destinationAddress
+              );
+            }
+
+            const data = await this.fetchWithTimeout(url.toString());
+            this.updateMBTAUI(data);
+            this.startUpdateCountdown("mbta");
+          } catch (error) {
+            console.error("MBTA data fetch error:", error);
+            this.showError(
+              "Failed to update MBTA data. Will retry automatically."
+            );
+            if (!isManual) {
+              setTimeout(() => this.fetchMBTAData(), 30000); // Retry after 30 seconds
+            }
+          }
+        }
+
+        clearError() {
+          document.getElementById("error-message").style.display = "none";
+        }
+
+        updateDrivingUI(data) {
+          const { formatDuration, formatDistance, drivingTimeClass } =
+            this.constructor.formatters;
+
+          const drivingToSec = parseInt(data.to.duration.replace("s", ""), 10);
+          const drivingFromSec = parseInt(
+            data.from.duration.replace("s", ""),
+            10
+          );
+
+          this.updateElement(
+            "to-time",
+            formatDuration(drivingToSec),
+            drivingTimeClass(drivingToSec)
+          );
+          this.updateElement(
+            "to-distance",
+            formatDistance(data.to.distanceMeters)
+          );
+          this.updateElement(
+            "from-time",
+            formatDuration(drivingFromSec),
+            drivingTimeClass(drivingFromSec)
+          );
+          this.updateElement(
+            "from-distance",
+            formatDistance(data.from.distanceMeters)
+          );
+
+          document.getElementById("timestamp").textContent = new Date(
+            data.timestamp
+          ).toLocaleString();
+
+          const cacheStatus = document.getElementById("cache-status");
+          if (data.cached) {
+            cacheStatus.textContent = `Cached (${Math.ceil(
+              data.cacheTTL
+            )} sec remaining)`;
+            cacheStatus.className = "cache-status cache-stale";
+          } else {
+            cacheStatus.textContent = "Fresh";
+            cacheStatus.className = "cache-status cache-fresh";
+          }
+        }
+
+        updateElement(id, text, className = "") {
+          const element = document.getElementById(id);
+          element.textContent = text;
+          if (className) element.className = className;
+        }
+
+        updateMBTAUI(data) {
+          const { predictions, walkingTime } = data;
+          const trainsDiv = document.getElementById("trains");
+          const walkingDiv = document.getElementById("walking-info");
+          const walkingText = document.getElementById("walking-text");
+
+          // Display walking time if available
+          if (walkingTime && this.config.destinationAddress) {
+            walkingDiv.style.display = "block";
+            const walkMinutes = walkingTime.minutes;
+            const walkDistance = (walkingTime.distance / 1609.344).toFixed(1);
+            walkingText.textContent = `Walking time to station: ${walkMinutes} minute${
+              walkMinutes !== 1 ? "s" : ""
+            } (${walkDistance} miles)`;
+          } else {
+            walkingDiv.style.display = "none";
+          }
+
+          if (!predictions?.length) {
+            trainsDiv.innerHTML = "<p>No predictions available</p>";
+            return;
+          }
+
+          const northbound = predictions.filter(
+            (p) => p.direction === "Northbound"
+          );
+          const southbound = predictions.filter(
+            (p) => p.direction === "Southbound"
+          );
+
+          const createDirectionHTML = (trains, direction) => {
+            const symbol = direction === "Northbound" ? "↑" : "↓";
+            const destination =
+              direction === "Northbound" ? "Alewife" : "Ashmont/Braintree";
+
+            const predictions = trains
+              .map((p) =>
+                this.constructor.formatters.formatPrediction(p, walkingTime)
+              )
+              .filter(Boolean)
+              .join(" | ");
+
+            return `
         <div class="train-direction">
-          ${symbol} <i>${destination}</i>: ${predictions || 'No predictions'}
+          ${symbol} <i>${destination}</i>: ${predictions || "No predictions"}
         </div>
           `;
-        };
+          };
 
-        trainsDiv.innerHTML = `
+          trainsDiv.innerHTML = `
           <div class="train-time">
-            ${createDirectionHTML(northbound, 'Northbound')}
-            ${createDirectionHTML(southbound, 'Southbound')}
+            ${createDirectionHTML(northbound, "Northbound")}
+            ${createDirectionHTML(southbound, "Southbound")}
           </div>
         `;
-      }
-
-      startUpdateCountdown(type) {
-        if (this.state.timers[type]) {
-          clearInterval(this.state.timers[type]);
         }
 
-        const config = {
-          driving: {
-            duration: this.constants.UPDATE_INTERVAL_DRIVING,
-            updateSpan: 'next-update',
-            fetchFn: () => this.fetchDrivingData()
-          },
-          mbta: {
-            duration: this.constants.UPDATE_INTERVAL_MBTA,
-            updateSpan: 'next-update-mbta',
-            fetchFn: () => this.fetchMBTAData()
-          }
-        }[type];
-
-        let timeLeft = Math.floor(config.duration / 1000);
-        const updateSpan = document.getElementById(config.updateSpan);
-
-        this.state.timers[type] = setInterval(() => {
-          timeLeft -= 1;
-          if (timeLeft <= 0) {
-            updateSpan.textContent = 'Updating...';
+        startUpdateCountdown(type) {
+          if (this.state.timers[type]) {
             clearInterval(this.state.timers[type]);
-            config.fetchFn();
-          } else {
-            updateSpan.textContent = `${timeLeft} seconds`;
           }
-        }, 1000);
 
-        updateSpan.textContent = `${timeLeft} seconds`;
+          const config = {
+            driving: {
+              duration: this.constants.UPDATE_INTERVAL_DRIVING,
+              updateSpan: "next-update",
+              fetchFn: () => this.fetchDrivingData(),
+            },
+            mbta: {
+              duration: this.constants.UPDATE_INTERVAL_MBTA,
+              updateSpan: "next-update-mbta",
+              fetchFn: () => this.fetchMBTAData(),
+            },
+          }[type];
+
+          let timeLeft = Math.floor(config.duration / 1000);
+          const updateSpan = document.getElementById(config.updateSpan);
+
+          this.state.timers[type] = setInterval(() => {
+            timeLeft -= 1;
+            if (timeLeft <= 0) {
+              updateSpan.textContent = "Updating...";
+              clearInterval(this.state.timers[type]);
+              config.fetchFn();
+            } else {
+              updateSpan.textContent = `${timeLeft} seconds`;
+            }
+          }, 1000);
+
+          updateSpan.textContent = `${timeLeft} seconds`;
+        }
+
+        static formatters = {
+          formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const remainingSeconds = seconds % 60;
+            return `${hours}:${minutes
+              .toString()
+              .padStart(2, "0")}:${remainingSeconds
+              .toString()
+              .padStart(2, "0")}`;
+          },
+
+          formatDistance(meters) {
+            const miles = (meters / 1609.344).toFixed(2);
+            return `${miles} miles`;
+          },
+
+          drivingTimeClass(timeSec) {
+            if (timeSec > 40 * 60) return "very-long-drive-time";
+            if (timeSec > 30 * 60) return "long-drive-time";
+            return "";
+          },
+
+          formatPrediction(prediction, walkingTime) {
+            if (!this.showTimePrediction(prediction.arrival)) return null;
+
+            const timeUntil = this.formatTimeUntil(prediction.arrival);
+            const minutesUntil = this.getMinutesUntil(prediction.arrival);
+
+            // Determine if train is catchable based on walking time
+            let catchableClass = "";
+            if (walkingTime && minutesUntil !== null) {
+              if (minutesUntil < walkingTime.minutes) {
+                catchableClass = "train-missed";
+              } else if (minutesUntil <= walkingTime.minutes + 2) {
+                // Close call - might be tight
+                catchableClass = "";
+              } else {
+                catchableClass = "train-catchable";
+              }
+            }
+
+            return `
+        <span class="${catchableClass}">
+          ${timeUntil}
+        </span>
+        ${
+          prediction.status
+            ? `<span class="train-status">${prediction.status}</span>`
+            : ""
+        }
+        `;
+          },
+
+          getMinutesUntil(arrivalTime) {
+            if (!arrivalTime) return null;
+            const arrival = new Date(arrivalTime);
+            const now = new Date();
+            return Math.round((arrival - now) / (1000 * 60));
+          },
+
+          showTimePrediction(arrivalTime) {
+            if (!arrivalTime) return false;
+            const arrival = new Date(arrivalTime);
+            const now = new Date();
+            const diffMinutes = Math.round((arrival - now) / (1000 * 60));
+            return diffMinutes > -1;
+          },
+
+          formatTimeUntil(arrivalTime) {
+            const arrival = new Date(arrivalTime);
+            const now = new Date();
+            const diffMinutes = Math.round((arrival - now) / (1000 * 60));
+
+            if (diffMinutes < -1) return `${-diffMinutes} minutes ago`;
+            if (diffMinutes <= 0) return "Now";
+            if (diffMinutes === 1) return "1 minute";
+            return `${diffMinutes} minutes`;
+          },
+        };
       }
 
-      static formatters = {
-        formatDuration(seconds) {
-          const hours = Math.floor(seconds / 3600);
-          const minutes = Math.floor((seconds % 3600) / 60);
-          const remainingSeconds = seconds % 60;
-          return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-        },
+      // Initialize the application
+      const app = new TravelTimeMonitor();
 
-        formatDistance(meters) {
-          const miles = (meters / 1609.344).toFixed(2);
-          return `${miles} miles`;
-        },
+      // Settings UI functions
+      function toggleSettings() {
+        const content = document.getElementById("settings-content");
+        const toggle = document.getElementById("settings-toggle");
+        content.classList.toggle("open");
+        toggle.classList.toggle("open");
+      }
 
-        drivingTimeClass(timeSec) {
-          if (timeSec > 40 * 60) return 'very-long-drive-time';
-          if (timeSec > 30 * 60) return 'long-drive-time';
-          return '';
-        },
+      function saveSettings() {
+        const homeAddress = document
+          .getElementById("home-address")
+          .value.trim();
+        const destinationAddress = document
+          .getElementById("destination-address")
+          .value.trim();
+        const mbtaStation = document.getElementById("mbta-station").value;
 
-        formatPrediction(prediction) {
-          if (!this.showTimePrediction(prediction.arrival)) return null;
-
-          return `
-        <span class="${prediction.arrival ? 'train-arriving' : ''}">
-          ${prediction.arrival ? this.formatTimeUntil(prediction.arrival) : 'No prediction'}
-        </span>
-        ${prediction.status ? `<span class="train-status">${prediction.status}</span>` : ''}
-        `;
-        },
-
-        showTimePrediction(arrivalTime) {
-          if (!arrivalTime) return false;
-          const arrival = new Date(arrivalTime);
-          const now = new Date();
-          const diffMinutes = Math.round((arrival - now) / (1000 * 60));
-          return diffMinutes > -1;
-        },
-
-        formatTimeUntil(arrivalTime) {
-          const arrival = new Date(arrivalTime);
-          const now = new Date();
-          const diffMinutes = Math.round((arrival - now) / (1000 * 60));
-
-          if (diffMinutes < -1) return `${-diffMinutes} minutes ago`;
-          if (diffMinutes <= 0) return 'Now';
-          if (diffMinutes === 1) return '1 minute';
-          return `${diffMinutes} minutes`;
+        // Validation
+        if (!homeAddress || !destinationAddress) {
+          app.showError("Please enter both home and destination addresses");
+          return;
         }
-      };
-    }
 
-    // Initialize the application
-    const app = new TravelTimeMonitor();
+        // Basic address validation - check for minimum length and basic format
+        if (homeAddress.length < 10 || destinationAddress.length < 10) {
+          app.showError(
+            "Please enter complete addresses (street, city, state)"
+          );
+          return;
+        }
+
+        // Check if addresses contain basic components (commas or state abbreviation)
+        const addressPattern = /(\d+\s+\w+|\w+\s+\w+).*(,|MA|Massachusetts)/i;
+        if (!addressPattern.test(homeAddress)) {
+          app.showError("Home address should include street, city and state");
+          return;
+        }
+        if (!addressPattern.test(destinationAddress)) {
+          app.showError(
+            "Destination address should include street, city and state"
+          );
+          return;
+        }
+
+        app.updateConfig({
+          homeAddress,
+          destinationAddress,
+          mbtaStation,
+          mbtaStationName: app.configManager.getStationName(mbtaStation),
+        });
+
+        app.showError("Settings saved! Refreshing data...");
+        app.handleManualRefresh();
+
+        setTimeout(() => {
+          toggleSettings();
+        }, 500);
+      }
+
+      function resetSettings() {
+        if (confirm("Reset all settings to defaults?")) {
+          const defaults = app.configManager.reset();
+          app.config = defaults;
+          app.loadSettingsUI();
+          app.updateUIWithConfig();
+          app.showError("Settings reset to defaults");
+          app.handleManualRefresh();
+        }
+      }
     </script>
-</body>
+  </body>
 </html>
