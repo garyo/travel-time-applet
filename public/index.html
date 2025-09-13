@@ -219,6 +219,25 @@
       .walking-icon {
         margin-right: 5px;
       }
+      .loading {
+        color: #666;
+        font-style: italic;
+      }
+      .error-state {
+        color: #ff0000;
+        background: #ffe6e6;
+        padding: 4px 8px;
+        border-radius: 3px;
+      }
+      .success-message {
+        background: #e6ffe6;
+        color: #006600;
+      }
+      .retry-info {
+        font-size: 0.85em;
+        color: #666;
+        margin-top: 5px;
+      }
     </style>
   </head>
   <body>
@@ -328,6 +347,48 @@
     </div>
 
     <script>
+      // Security utilities
+      class SecurityUtils {
+        static sanitizeInput(input) {
+          if (typeof input !== 'string') return '';
+          // Remove potentially dangerous characters and limit length
+          return input.trim().slice(0, 200).replace(/[<>"'&]/g, '');
+        }
+
+        static validateAddress(address) {
+          if (!address || typeof address !== 'string') return false;
+
+          const sanitized = this.sanitizeInput(address);
+          if (sanitized.length < 10) return false;
+
+          // Basic address format validation
+          const hasNumbers = /\d/.test(sanitized);
+          const hasLetters = /[a-zA-Z]/.test(sanitized);
+          const hasCommaOrState = /(,|MA|Massachusetts|Boston|Cambridge)/i.test(sanitized);
+
+          // Check for suspicious patterns
+          const suspiciousPatterns = [
+            /<script/i, /javascript:/i, /data:/i, /vbscript:/i,
+            /onload/i, /onerror/i, /onclick/i, /alert\(/i, /eval\(/i,
+            /\{\{/,  // Template injection
+            /\$\{/,  // Template literals
+            /\[\[/   // Some template engines
+          ];
+
+          if (suspiciousPatterns.some(pattern => pattern.test(sanitized))) {
+            return false;
+          }
+
+          return hasNumbers && hasLetters && hasCommaOrState;
+        }
+
+        static escapeHtml(text) {
+          const div = document.createElement('div');
+          div.textContent = text;
+          return div.innerHTML;
+        }
+      }
+
       // Configuration management
       class ConfigManager {
         constructor() {
@@ -356,10 +417,8 @@
         hasValidAddresses() {
           const config = this.load();
           return (
-            config.homeAddress &&
-            config.homeAddress.length > 0 &&
-            config.destinationAddress &&
-            config.destinationAddress.length > 0
+            SecurityUtils.validateAddress(config.homeAddress) &&
+            SecurityUtils.validateAddress(config.destinationAddress)
           );
         }
 
@@ -519,24 +578,86 @@
           refreshButton.disabled = isRefreshing;
         }
 
-        showError(message) {
+        showError(message, isPersistent = false) {
           const errorElement = document.getElementById("error-message");
-          errorElement.textContent = message;
+          errorElement.textContent = SecurityUtils.escapeHtml(message);
           errorElement.style.display = "block";
+
+          if (!isPersistent) {
+            setTimeout(() => {
+              errorElement.style.display = "none";
+            }, 5000); // Increased timeout for better UX
+          }
+        }
+
+        showSuccess(message) {
+          // Reuse error element but with different styling
+          const errorElement = document.getElementById("error-message");
+          errorElement.textContent = SecurityUtils.escapeHtml(message);
+          errorElement.style.display = "block";
+          errorElement.style.background = "#e6ffe6";
+          errorElement.style.color = "#006600";
+
           setTimeout(() => {
             errorElement.style.display = "none";
+            // Reset to error styling
+            errorElement.style.background = "#ffe6e6";
+            errorElement.style.color = "#ff0000";
           }, 3000);
         }
 
-        async fetchWithTimeout(url, timeout = 10000) {
+        clearError() {
+          const errorElement = document.getElementById("error-message");
+          errorElement.style.display = "none";
+          errorElement.style.background = "#ffe6e6";
+          errorElement.style.color = "#ff0000";
+        }
+
+        showLoading(elementId, message = "Loading...") {
+          const element = document.getElementById(elementId);
+          if (element) {
+            element.textContent = message;
+            element.className = "";
+          }
+        }
+
+        async fetchWithTimeout(url, timeout = 15000) {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), timeout);
 
           try {
             const response = await fetch(url, { signal: controller.signal });
-            if (!response.ok)
-              throw new Error(`HTTP error! status: ${response.status}`);
-            return await response.json();
+
+            if (!response.ok) {
+              let errorMessage = `Server error (${response.status})`;
+
+              if (response.status === 429) {
+                errorMessage = "Rate limit exceeded. Please wait before trying again.";
+              } else if (response.status >= 500) {
+                errorMessage = "Server is temporarily unavailable. Please try again later.";
+              } else if (response.status === 404) {
+                errorMessage = "Service endpoint not found. Please check your configuration.";
+              } else if (response.status >= 400) {
+                errorMessage = "Invalid request. Please check your addresses.";
+              }
+
+              throw new Error(errorMessage);
+            }
+
+            const data = await response.json();
+            if (!data) {
+              throw new Error("Received empty response from server");
+            }
+
+            return data;
+          } catch (error) {
+            if (error.name === 'AbortError') {
+              throw new Error("Request timed out. Please check your connection and try again.");
+            }
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+              throw new Error("Network error. Please check your internet connection.");
+            }
+            throw error;
           } finally {
             clearTimeout(timeoutId);
           }
@@ -544,40 +665,71 @@
 
         async fetchDrivingData(isManual = false) {
           // Don't fetch if addresses are not configured
-          if (!this.config.homeAddress || !this.config.destinationAddress) {
-            document.getElementById("to-time").textContent = "Not configured";
-            document.getElementById("to-distance").textContent = "-";
-            document.getElementById("from-time").textContent = "Not configured";
-            document.getElementById("from-distance").textContent = "-";
+          if (!this.configManager.hasValidAddresses()) {
+            this.showLoading("to-time", "Not configured");
+            this.showLoading("to-distance", "-");
+            this.showLoading("from-time", "Not configured");
+            this.showLoading("from-distance", "-");
             return;
+          }
+
+          // Show loading state
+          if (isManual || this.state.lastRequestTimeDriving === 0) {
+            this.showLoading("to-time", "Loading...");
+            this.showLoading("from-time", "Loading...");
           }
 
           try {
             this.state.lastRequestTimeDriving = Date.now();
             this.clearError();
 
+            // Validate and sanitize addresses before sending
+            const homeAddress = SecurityUtils.sanitizeInput(this.config.homeAddress);
+            const destinationAddress = SecurityUtils.sanitizeInput(this.config.destinationAddress);
+
+            if (!SecurityUtils.validateAddress(homeAddress) || !SecurityUtils.validateAddress(destinationAddress)) {
+              throw new Error("Invalid address format. Please check your settings.");
+            }
+
             const url = new URL(this.constants.ENDPOINTS.DRIVING);
-            url.searchParams.append("origin", this.config.homeAddress);
-            url.searchParams.append(
-              "destination",
-              this.config.destinationAddress
-            );
+            url.searchParams.append("origin", homeAddress);
+            url.searchParams.append("destination", destinationAddress);
 
             const data = await this.fetchWithTimeout(url.toString());
+
+            // Validate response structure
+            if (!data.to || !data.from || !data.to.duration || !data.from.duration) {
+              throw new Error("Invalid response format from server");
+            }
+
             this.updateDrivingUI(data);
             this.startUpdateCountdown("driving");
           } catch (error) {
             console.error("Driving data fetch error:", error);
-            this.showError(
-              "Failed to update driving time. Will retry automatically."
-            );
+
+            // Show user-friendly error message
+            this.showError(error.message);
+
+            // Show fallback UI
+            this.showLoading("to-time", "Error");
+            this.showLoading("from-time", "Error");
+            this.showLoading("to-distance", "-");
+            this.showLoading("from-distance", "-");
+
+            // Retry logic for automatic fetches
             if (!isManual) {
-              setTimeout(() => this.fetchDrivingData(), 30000); // Retry after 30 seconds
+              const retryDelay = this.getRetryDelay(error);
+              setTimeout(() => this.fetchDrivingData(), retryDelay);
             }
           }
         }
 
         async fetchMBTAData(isManual = false) {
+          // Show loading state
+          if (isManual || this.state.lastRequestTimeMBTA === 0) {
+            document.getElementById("trains").innerHTML = "<p>Loading train data...</p>";
+          }
+
           try {
             this.state.lastRequestTimeMBTA = Date.now();
             this.clearError();
@@ -585,74 +737,122 @@
             const url = new URL(this.constants.ENDPOINTS.MBTA);
             url.searchParams.append("station", this.config.mbtaStation);
 
-            // Include destination for walking time calculation
-            if (this.config.destinationAddress) {
-              url.searchParams.append(
-                "destination",
-                this.config.destinationAddress
-              );
+            // Include destination for walking time calculation (validate first)
+            if (this.config.destinationAddress && SecurityUtils.validateAddress(this.config.destinationAddress)) {
+              const sanitizedDestination = SecurityUtils.sanitizeInput(this.config.destinationAddress);
+              url.searchParams.append("destination", sanitizedDestination);
             }
 
             const data = await this.fetchWithTimeout(url.toString());
+
+            // Validate response structure
+            if (!data.predictions) {
+              throw new Error("Invalid MBTA response format");
+            }
+
             this.updateMBTAUI(data);
             this.startUpdateCountdown("mbta");
           } catch (error) {
             console.error("MBTA data fetch error:", error);
-            this.showError(
-              "Failed to update MBTA data. Will retry automatically."
-            );
+
+            // Show user-friendly error message
+            this.showError(error.message);
+
+            // Show fallback UI
+            document.getElementById("trains").innerHTML = `<p style="color: #ff0000;">Error loading train data: ${SecurityUtils.escapeHtml(error.message)}</p>`;
+
+            // Hide walking info on error
+            document.getElementById("walking-info").style.display = "none";
+
+            // Retry logic for automatic fetches
             if (!isManual) {
-              setTimeout(() => this.fetchMBTAData(), 30000); // Retry after 30 seconds
+              const retryDelay = this.getRetryDelay(error);
+              setTimeout(() => this.fetchMBTAData(), retryDelay);
             }
           }
         }
 
-        clearError() {
-          document.getElementById("error-message").style.display = "none";
+        getRetryDelay(error) {
+          // Implement exponential backoff for different error types
+          if (error.message.includes("Rate limit")) {
+            return 60000; // 1 minute for rate limiting
+          }
+          if (error.message.includes("Server error") || error.message.includes("temporarily unavailable")) {
+            return 120000; // 2 minutes for server errors
+          }
+          if (error.message.includes("timeout")) {
+            return 45000; // 45 seconds for timeouts
+          }
+          return 30000; // Default 30 seconds
         }
 
         updateDrivingUI(data) {
+          // Handle error response from /all endpoint
+          if (data.error) {
+            this.showLoading("to-time", "Service Error");
+            this.showLoading("from-time", "Service Error");
+            this.showLoading("to-distance", "-");
+            this.showLoading("from-distance", "-");
+            return;
+          }
+
           const { formatDuration, formatDistance, drivingTimeClass } =
             this.constructor.formatters;
 
-          const drivingToSec = parseInt(data.to.duration.replace("s", ""), 10);
-          const drivingFromSec = parseInt(
-            data.from.duration.replace("s", ""),
-            10
-          );
+          try {
+            const drivingToSec = parseInt(data.to.duration.replace("s", ""), 10);
+            const drivingFromSec = parseInt(
+              data.from.duration.replace("s", ""),
+              10
+            );
 
-          this.updateElement(
-            "to-time",
-            formatDuration(drivingToSec),
-            drivingTimeClass(drivingToSec)
-          );
-          this.updateElement(
-            "to-distance",
-            formatDistance(data.to.distanceMeters)
-          );
-          this.updateElement(
-            "from-time",
-            formatDuration(drivingFromSec),
-            drivingTimeClass(drivingFromSec)
-          );
-          this.updateElement(
-            "from-distance",
-            formatDistance(data.from.distanceMeters)
-          );
+            if (isNaN(drivingToSec) || isNaN(drivingFromSec)) {
+              throw new Error("Invalid duration data received");
+            }
 
-          document.getElementById("timestamp").textContent = new Date(
-            data.timestamp
-          ).toLocaleString();
+            this.updateElement(
+              "to-time",
+              formatDuration(drivingToSec),
+              drivingTimeClass(drivingToSec)
+            );
+            this.updateElement(
+              "to-distance",
+              formatDistance(data.to.distanceMeters || 0)
+            );
+            this.updateElement(
+              "from-time",
+              formatDuration(drivingFromSec),
+              drivingTimeClass(drivingFromSec)
+            );
+            this.updateElement(
+              "from-distance",
+              formatDistance(data.from.distanceMeters || 0)
+            );
 
-          const cacheStatus = document.getElementById("cache-status");
-          if (data.cached) {
-            cacheStatus.textContent = `Cached (${Math.ceil(
-              data.cacheTTL
-            )} sec remaining)`;
-            cacheStatus.className = "cache-status cache-stale";
-          } else {
-            cacheStatus.textContent = "Fresh";
-            cacheStatus.className = "cache-status cache-fresh";
+            // Update timestamp if available
+            if (data.timestamp) {
+              document.getElementById("timestamp").textContent = new Date(
+                data.timestamp
+              ).toLocaleString();
+            }
+
+            // Update cache status
+            const cacheStatus = document.getElementById("cache-status");
+            if (data.cached) {
+              cacheStatus.textContent = `Cached (${Math.ceil(
+                data.cacheTTL || 0
+              )} sec remaining)`;
+              cacheStatus.className = "cache-status cache-stale";
+            } else {
+              cacheStatus.textContent = "Fresh";
+              cacheStatus.className = "cache-status cache-fresh";
+            }
+          } catch (error) {
+            console.error("Error updating driving UI:", error);
+            this.showLoading("to-time", "Data Error");
+            this.showLoading("from-time", "Data Error");
+            this.showLoading("to-distance", "-");
+            this.showLoading("from-distance", "-");
           }
         }
 
@@ -663,60 +863,79 @@
         }
 
         updateMBTAUI(data) {
-          const { predictions, walkingTime } = data;
           const trainsDiv = document.getElementById("trains");
           const walkingDiv = document.getElementById("walking-info");
           const walkingText = document.getElementById("walking-text");
 
-          // Display walking time if available
-          if (walkingTime && this.config.destinationAddress) {
-            walkingDiv.style.display = "block";
-            const walkMinutes = walkingTime.minutes;
-            const walkDistance = (walkingTime.distance / 1609.344).toFixed(1);
-            walkingText.textContent = `Walking time to station: ${walkMinutes} minute${
-              walkMinutes !== 1 ? "s" : ""
-            } (${walkDistance} miles)`;
-          } else {
+          // Handle error response from /all endpoint
+          if (data.error) {
+            trainsDiv.innerHTML = `<p style="color: #ff0000;">MBTA Service Error: ${SecurityUtils.escapeHtml(data.error)}</p>`;
             walkingDiv.style.display = "none";
-          }
-
-          if (!predictions?.length) {
-            trainsDiv.innerHTML = "<p>No predictions available</p>";
             return;
           }
 
-          const northbound = predictions.filter(
-            (p) => p.direction === "Northbound"
-          );
-          const southbound = predictions.filter(
-            (p) => p.direction === "Southbound"
-          );
+          try {
+            const { predictions, walkingTime } = data;
 
-          const createDirectionHTML = (trains, direction) => {
-            const symbol = direction === "Northbound" ? "↑" : "↓";
-            const destination =
-              direction === "Northbound" ? "Alewife" : "Ashmont/Braintree";
+            // Display walking time if available
+            if (walkingTime && this.config.destinationAddress) {
+              walkingDiv.style.display = "block";
+              const walkMinutes = walkingTime.minutes || 0;
+              const walkDistance = walkingTime.distance ? (walkingTime.distance / 1609.344).toFixed(1) : "0.0";
+              walkingText.textContent = `Walking time to station: ${walkMinutes} minute${
+                walkMinutes !== 1 ? "s" : ""
+              } (${walkDistance} miles)`;
+            } else {
+              walkingDiv.style.display = "none";
+            }
 
-            const predictions = trains
-              .map((p) =>
-                this.constructor.formatters.formatPrediction(p, walkingTime)
-              )
-              .filter(Boolean)
-              .join(" | ");
+            if (!predictions || !Array.isArray(predictions) || predictions.length === 0) {
+              trainsDiv.innerHTML = "<p>No train predictions available</p>";
+              return;
+            }
 
-            return `
+            const northbound = predictions.filter(
+              (p) => p && p.direction === "Northbound"
+            );
+            const southbound = predictions.filter(
+              (p) => p && p.direction === "Southbound"
+            );
+
+            const createDirectionHTML = (trains, direction) => {
+              const symbol = direction === "Northbound" ? "↑" : "↓";
+              const destination =
+                direction === "Northbound" ? "Alewife" : "Ashmont/Braintree";
+
+              const predictions = trains
+                .map((p) => {
+                  try {
+                    return this.constructor.formatters.formatPrediction(p, walkingTime);
+                  } catch (error) {
+                    console.error("Error formatting prediction:", error, p);
+                    return null;
+                  }
+                })
+                .filter(Boolean)
+                .join(" | ");
+
+              return `
         <div class="train-direction">
-          ${symbol} <i>${destination}</i>: ${predictions || "No predictions"}
+          ${symbol} <i>${SecurityUtils.escapeHtml(destination)}</i>: ${predictions || "No predictions"}
         </div>
           `;
-          };
+            };
 
-          trainsDiv.innerHTML = `
+            trainsDiv.innerHTML = `
           <div class="train-time">
             ${createDirectionHTML(northbound, "Northbound")}
             ${createDirectionHTML(southbound, "Southbound")}
           </div>
         `;
+          } catch (error) {
+            console.error("Error updating MBTA UI:", error);
+            trainsDiv.innerHTML = "<p style=\"color: #ff0000;\">Error displaying train data</p>";
+            walkingDiv.style.display = "none";
+          }
         }
 
         startUpdateCountdown(type) {
@@ -848,54 +1067,81 @@
       }
 
       function saveSettings() {
-        const homeAddress = document
-          .getElementById("home-address")
-          .value.trim();
-        const destinationAddress = document
-          .getElementById("destination-address")
-          .value.trim();
+        const homeAddressRaw = document.getElementById("home-address").value;
+        const destinationAddressRaw = document.getElementById("destination-address").value;
         const mbtaStation = document.getElementById("mbta-station").value;
 
-        // Validation
+        // Sanitize inputs
+        const homeAddress = SecurityUtils.sanitizeInput(homeAddressRaw);
+        const destinationAddress = SecurityUtils.sanitizeInput(destinationAddressRaw);
+
+        // Comprehensive validation
         if (!homeAddress || !destinationAddress) {
           app.showError("Please enter both home and destination addresses");
           return;
         }
 
-        // Basic address validation - check for minimum length and basic format
-        if (homeAddress.length < 10 || destinationAddress.length < 10) {
-          app.showError(
-            "Please enter complete addresses (street, city, state)"
-          );
+        // Security validation
+        if (!SecurityUtils.validateAddress(homeAddress)) {
+          app.showError("Home address format is invalid or contains unsafe characters. Please enter a valid street address.");
           return;
         }
 
-        // Check if addresses contain basic components (commas or state abbreviation)
-        const addressPattern = /(\d+\s+\w+|\w+\s+\w+).*(,|MA|Massachusetts)/i;
-        if (!addressPattern.test(homeAddress)) {
-          app.showError("Home address should include street, city and state");
-          return;
-        }
-        if (!addressPattern.test(destinationAddress)) {
-          app.showError(
-            "Destination address should include street, city and state"
-          );
+        if (!SecurityUtils.validateAddress(destinationAddress)) {
+          app.showError("Destination address format is invalid or contains unsafe characters. Please enter a valid street address.");
           return;
         }
 
-        app.updateConfig({
-          homeAddress,
-          destinationAddress,
-          mbtaStation,
-          mbtaStationName: app.configManager.getStationName(mbtaStation),
-        });
+        // Check if inputs were modified during sanitization (potential security issue)
+        if (homeAddressRaw.trim() !== homeAddress) {
+          app.showError("Home address contains invalid characters that were removed. Please review and save again.");
+          // Update the input field to show the sanitized version
+          document.getElementById("home-address").value = homeAddress;
+          return;
+        }
 
-        app.showError("Settings saved! Refreshing data...");
-        app.handleManualRefresh();
+        if (destinationAddressRaw.trim() !== destinationAddress) {
+          app.showError("Destination address contains invalid characters that were removed. Please review and save again.");
+          // Update the input field to show the sanitized version
+          document.getElementById("destination-address").value = destinationAddress;
+          return;
+        }
 
-        setTimeout(() => {
-          toggleSettings();
-        }, 500);
+        // Validate MBTA station selection
+        const validStations = [
+          "place-knncl", "place-chmnl", "place-pktrm", "place-dwnxg",
+          "place-sstat", "place-harsq", "place-portr", "place-davis",
+          "place-cntsq", "place-asmnl", "place-jfk", "place-andrw", "place-brdwy"
+        ];
+
+        if (!validStations.includes(mbtaStation)) {
+          app.showError("Invalid MBTA station selected");
+          return;
+        }
+
+        // Save configuration
+        try {
+          app.updateConfig({
+            homeAddress,
+            destinationAddress,
+            mbtaStation,
+            mbtaStationName: app.configManager.getStationName(mbtaStation),
+          });
+
+          app.showSuccess("Settings saved successfully! Refreshing data...");
+
+          // Refresh data after a brief delay
+          setTimeout(() => {
+            app.handleManualRefresh();
+          }, 500);
+
+          setTimeout(() => {
+            toggleSettings();
+          }, 1000);
+        } catch (error) {
+          console.error("Error saving settings:", error);
+          app.showError("Failed to save settings. Please try again.");
+        }
       }
 
       function resetSettings() {

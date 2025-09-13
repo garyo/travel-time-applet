@@ -1,0 +1,46 @@
+{
+  "name": "travel-time-applet",
+  "version": "1.0.0",
+  "description": "Travel time calculator with MBTA transit and driving directions",
+  "private": true,
+  "scripts": {
+    "dev": "cd travel-time-worker && bun run dev",
+    "dev-server": "cd travel-time-worker && bun run dev-server",
+    "start-local": "cd travel-time-worker && bun run start-local",
+    "deploy": "./scripts/deploy.sh",
+    "test": "cd travel-time-worker && bun run test",
+    "test:api": "cd travel-time-worker && bun run test:api",
+    "test:api:local": "cd travel-time-worker && bun run test:api:local",
+    "test:api:local:fetch": "cd travel-time-worker && bun run test:api:local:fetch",
+    "test:api:local:curl": "cd travel-time-worker && bun run test:api:local:curl",
+    "test:api:prod": "cd travel-time-worker && bun run test:api:prod",
+    "test:api:prod:curl": "cd travel-time-worker && bun run test:api:prod:curl",
+    "lint": "cd travel-time-worker && bun run lint",
+    "format": "cd travel-time-worker && bun run format",
+    "install-deps": "cd travel-time-worker && bun install",
+    "clean": "cd travel-time-worker && rm -rf node_modules .wrangler dist && bun install"
+  },
+  "workspaces": [
+    "travel-time-worker"
+  ],
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "engines": {
+    "bun": ">=1.0.0",
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "travel-time",
+    "mbta",
+    "google-maps",
+    "cloudflare-worker",
+    "transit"
+  ],
+  "author": "Gary Oberbrunner",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/travel-time-applet"
+  }
+}

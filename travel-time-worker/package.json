@@ -1,0 +1,38 @@
+{
+  "name": "travel-time-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker for travel time calculations using MBTA and Google Maps APIs",
+  "main": "worker.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "dev-server": "bun run scripts/dev-server.js",
+    "start-local": "concurrently \"bun run dev\" \"sleep 3 && bun run dev-server\"",
+    "deploy": "wrangler deploy",
+    "test": "bun test",
+    "test:api": "bun run test:api:local",
+    "test:api:local": "bun run scripts/test-api.js",
+    "test:api:local:fetch": "bun run scripts/test-api.js",
+    "test:api:local:curl": "bun run scripts/test-api-curl.js",
+    "test:api:prod": "WORKER_URL=https://travel-time-worker.garyo.workers.dev bun run scripts/test-api.js",
+    "test:api:prod:curl": "WORKER_URL=https://travel-time-worker.garyo.workers.dev bun run scripts/test-api-curl.js",
+    "lint": "eslint worker.js",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240925.0",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.11.1",
+    "prettier": "^3.3.3"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "keywords": [
+    "cloudflare-worker",
+    "travel-time",
+    "mbta",
+    "google-maps"
+  ],
+  "author": "Gary Oberbrunner",
+  "license": "MIT"
+}
